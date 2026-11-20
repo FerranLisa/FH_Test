@@ -1,0 +1,12 @@
+{
+  "release": "V33",
+  "board": "FH_Carrier",
+  "layout": "Original FH_Emulator root folders; carrier directory removed",
+  "static_source_checks": "PASS",
+  "host_tests": {
+    "passed": 29,
+    "failed": 0
+  },
+  "compilation_run": false,
+  "hardware_validation": "pending GUI builds and board test"
+}

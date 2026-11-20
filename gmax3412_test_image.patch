@@ -1,0 +1,47 @@
+--- a/BringupTest.c
++++ b/BringupTest.c
+@@ -4342,2 +4342,28 @@
++/* GMAX3412 datasheet, Table 52: TEST_IMG_EN occupies bits 3:1. */
++static int gmax_select_image_source(int TestImage)
++{
++    const u16 address = 0x3500U;
++    u8 original, selected;
++
++    if (!GmaxStreamEnabled || GmaxPatternRecoveryRequired) {
++        xil_printf("Enable the stream with S after initialization.\r\n");
++        return XST_FAILURE;
++    }
++    if (TestImage && gmax_training_result_from_status(gmax_status_read()) != 0xFFFFU) {
++        xil_printf("Image request blocked: check all 16 lanes with T.\r\n");
++        return XST_FAILURE;
++    }
++    if (gmax_i2c_read8_at(GMAX_I2C_ADDR_0, address, &original) != XST_SUCCESS)
++        return XST_FAILURE;
++    selected = (u8)((original & ~0x0EU) | (TestImage ? 0x08U : 0U));
++    if (gmax_pattern_write_verified(address, selected) != XST_SUCCESS) {
++        xil_printf("Image source unverified. No trigger issued.\r\n");
++        return XST_FAILURE;
++    }
++    xil_printf("0x3500=0x%02X: %s selected.\r\n", selected,
++               TestImage ? "sensor test ramp" : "normal imaging");
++    return TestImage ? gmax_request_one_frame() : XST_SUCCESS;
++}
++
+ static void show_gmax_menu(void)
+ {
+@@ -4363,2 +4389,4 @@
++    xil_printf(" J - Select sensor test ramp and trigger one frame (F repeats)\r\n");
++    xil_printf(" M - Restore normal sensor imaging\r\n");
+     xil_printf(" F - Request one frame with a 100 us TEXP1 pulse\r\n");
+     xil_printf(" X - Stop stream + GMAX internal power-down; keep board ON\r\n");
+@@ -4441,2 +4469,10 @@
++        case 'j':
++        case 'J':
++            (void)gmax_select_image_source(1);
++            break;
++        case 'm':
++        case 'M':
++            (void)gmax_select_image_source(0);
++            break;
+         case 'f':
+         case 'F':

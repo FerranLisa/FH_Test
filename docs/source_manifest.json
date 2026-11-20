@@ -1,0 +1,297 @@
+[
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\gmax3412_clk_probe.v",
+    "destination": "hardware/rtl/gmax3412_clk_probe.v",
+    "sha256": "b07a4f8ef6a96e4fb3d5c5cf66791cb9da72ea7f29c6cfc590e93b9e2fdf1778"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\imports\\New folder\\cmos_image_receiver.v",
+    "destination": "hardware/rtl/cmos_image_receiver.v",
+    "sha256": "21f261ac7f89efd4089128ffef2382b814481d0af9d41e07c42eb9c50c4e3060"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\imports\\New folder\\image_syncer.v",
+    "destination": "hardware/rtl/image_syncer.v",
+    "sha256": "77016493650cae4eed6a205d7bd0b1547d1b7e527e74f869b081b65715204400"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\i2c_emio_iobuf.v",
+    "destination": "hardware/rtl/i2c_emio_iobuf.v",
+    "sha256": "abef0c879d792aa9c62a972637dbece374ba840295943dee8ff5ab9f0e7769d9"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\fh_pcie_refclk_monitor.v",
+    "destination": "hardware/rtl/fh_pcie_refclk_monitor.v",
+    "sha256": "7838dc1b09796af48f94dbca3ff203c255b04b31d5bf83ea38f2a6368f4886a6"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\pl_ddr_dci_reset.v",
+    "destination": "hardware/rtl/pl_ddr_dci_reset.v",
+    "sha256": "d814943e66c6f690d477649ae032315243e7cb3f0a44ff75596972018469d59f"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\gmax3412_dual_ring.v",
+    "destination": "hardware/rtl/gmax3412_dual_ring.v",
+    "sha256": "ad0c7019ec35b253789af7a857bf7ddbd562a0456b56e96fcd29c774e7c4e41f"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\bd\\design_1\\design_1.bd",
+    "destination": "hardware/bd/design_1.bd",
+    "sha256": "956387f97ea6df7073556ace31b4dab61204d1de7c55a00efa906102e86562b9"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\FIFO_ICD_W12_D32_RDC.v",
+    "destination": "hardware/rtl/FIFO_ICD_W12_D32_RDC.v",
+    "sha256": "91892251fce73c48b05c780c847230f697cec242cac3be9bc200f5d12ec19978"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\imports\\New folder\\gmax3412_iob_clock.v",
+    "destination": "hardware/rtl/gmax3412_iob_clock.v",
+    "sha256": "41b9959e29893726c8d183c7bb1aca40abd691e08bdd84f8186f475f2302a76b"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\gmax3412_rx_adapter.v",
+    "destination": "hardware/rtl/gmax3412_rx_adapter.v",
+    "sha256": "24125875fd0745eeec47a29aefabbbc3182c8193117ef25d0945b1cad6177cdf"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\imports\\New folder\\iserdes1to10_12.v",
+    "destination": "hardware/rtl/iserdes1to10_12.v",
+    "sha256": "d7427061e59edf81f45ff3763fd5336fb08eb575f955a3231107e3c41b677c83"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\imports\\New folder\\training.v",
+    "destination": "hardware/rtl/training.v",
+    "sha256": "f804f329027d4fb60cdf1b65acd4c42437c2045ccca82522b2b7c33227a5fb90"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\sources_1\\new\\FH_Carrier_Bringup_top.v",
+    "destination": "hardware/rtl/FH_Carrier_Bringup_top.v",
+    "sha256": "fa077c1bd75d6fb42a2d81faab6e0e335f13fdc9f1453cb89e57d8e4379444eb"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\constrs_1\\new\\FH_Carrier_Bringup.xdc",
+    "destination": "hardware/constraints/FH_Carrier_Bringup.xdc",
+    "sha256": "2a5e83d4ace8ae3f1d86ddb4aaf3937ea6b767c600bbffdad2d28eb9dacb23e4"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\constrs_1\\new\\fh_pcie_refclk_monitor.xdc",
+    "destination": "hardware/constraints/fh_pcie_refclk_monitor.xdc",
+    "sha256": "a94b61c78b919c920473e932889037ee1e27f7ab71ebbf83c6e849a812c86e1e"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\constrs_1\\new\\FH_Carrier_Bringup_impl.xdc",
+    "destination": "hardware/constraints/FH_Carrier_Bringup_impl.xdc",
+    "sha256": "5adaff9343121ed37819fd0623e9bd90f1687960937bd5426cbdb11f3d32089c"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\FH_Carrier_Bringup.srcs\\constrs_1\\new\\pl_ddr4.xdc",
+    "destination": "hardware/constraints/pl_ddr4.xdc",
+    "sha256": "5469c8934ada8cf99ae87946891f5f9b9f1a85dcdb02650e55db99e776941312"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_capture\\component.xml",
+    "destination": "hardware/ip/gmax3412_capture/component.xml",
+    "sha256": "4c52ee13f3a6da4d4f5518ba6a682ab830bc81569332b679a832056b2d5e7648"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_capture\\README.md",
+    "destination": "hardware/ip/gmax3412_capture/README.md",
+    "sha256": "3875d06cea3c2a5a9a35b32121c1b7d6b46ea838682329f36d883fcd0e214ed8"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\component.xml",
+    "destination": "hardware/ip/gmax3412_emulator/component.xml",
+    "sha256": "35cc4ad1b63deeda1b72bb341d353ca517f50cc9b5ed7abd3971b9234386bc51"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\README.md",
+    "destination": "hardware/ip/gmax3412_emulator/README.md",
+    "sha256": "af8eeba9abb43a2af3abc52298419e4fd245efbe6ca1ec11ecd76dbc27924238"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_pl_ring\\component.xml",
+    "destination": "hardware/ip/gmax3412_pl_ring/component.xml",
+    "sha256": "d989ebe61c32f79c6798e9c6d483d9298e5764d2bdb498a916fb5247005cf9a4"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_scheduler\\component.xml",
+    "destination": "hardware/ip/gmax3412_scheduler/component.xml",
+    "sha256": "da35102f0755f1adca135ca5055e68c7eedf904c045d5f2b6a857f4e791bc2f3"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_scheduler\\hdl\\gmax3412_scheduler.v",
+    "destination": "hardware/ip/gmax3412_scheduler/hdl/gmax3412_scheduler.v",
+    "sha256": "b58eb39244497b4365989edbc524af7e13dcbd6ad391b2abe787d7262c7147e6"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_scheduler\\xgui\\gmax3412_scheduler_v1_0.tcl",
+    "destination": "hardware/ip/gmax3412_scheduler/xgui/gmax3412_scheduler_v1_0.tcl",
+    "sha256": "f763a63ee97a0e0b6f503592aa75da195240a73896e0552c056562a2897b1f57"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_pl_ring\\hdl\\gmax3412_pl_ring.v",
+    "destination": "hardware/ip/gmax3412_pl_ring/hdl/gmax3412_pl_ring.v",
+    "sha256": "b20535accacb8b8cdceee676b9c1777ee1ef87b720ede3dfee0f67af780e10f5"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_pl_ring\\xgui\\gmax3412_pl_ring_v1_0.tcl",
+    "destination": "hardware/ip/gmax3412_pl_ring/xgui/gmax3412_pl_ring_v1_0.tcl",
+    "sha256": "f763a63ee97a0e0b6f503592aa75da195240a73896e0552c056562a2897b1f57"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\hdl\\gmax3412_checker.v",
+    "destination": "hardware/ip/gmax3412_emulator/hdl/gmax3412_checker.v",
+    "sha256": "8b82c700fa3bc131e255b3f6f93d91a5817289597bd0b868cd9281e3099f3ede"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\hdl\\gmax3412_emulator.v",
+    "destination": "hardware/ip/gmax3412_emulator/hdl/gmax3412_emulator.v",
+    "sha256": "4239f4cb63e66efcd15435ad59ce0dee352da3895287dba17a1d196480bf9569"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\hdl\\gmax3412_pattern.v",
+    "destination": "hardware/ip/gmax3412_emulator/hdl/gmax3412_pattern.v",
+    "sha256": "1ac07d6673c678113817d2800d59b627280d26f936efdce68b9c71c94d6a54d0"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\hdl\\gmax3412_sequence.v",
+    "destination": "hardware/ip/gmax3412_emulator/hdl/gmax3412_sequence.v",
+    "sha256": "2203baebd4709c5968171399ee706300deaa1b729d202dac3ae4d5f8887094c6"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\hdl\\gmax3412_timing.v",
+    "destination": "hardware/ip/gmax3412_emulator/hdl/gmax3412_timing.v",
+    "sha256": "7feb47d74fb161907c2708f449dcc1191dfc0026dd521d1046fb8dacd4f601d7"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_emulator\\xgui\\gmax3412_emulator_v1_0.tcl",
+    "destination": "hardware/ip/gmax3412_emulator/xgui/gmax3412_emulator_v1_0.tcl",
+    "sha256": "63c192c2df9dc7900863ad06b211b6c5eb94ca1a6b3d3bc91aeb08f9e949c330"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_capture\\hdl\\gmax3412_capture.v",
+    "destination": "hardware/ip/gmax3412_capture/hdl/gmax3412_capture.v",
+    "sha256": "117c11dc793cddcf55eb5a5127d40250c44e4a7e9962e15b3d08848f1264348f"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_capture\\hdl\\gmax3412_capture_source.v",
+    "destination": "hardware/ip/gmax3412_capture/hdl/gmax3412_capture_source.v",
+    "sha256": "213abe0f11b67e249abe4e4895798778dc9e165cf9ba91782fab15cc9614e486"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\ip\\gmax3412_capture\\xgui\\gmax3412_capture_v1_0.tcl",
+    "destination": "hardware/ip/gmax3412_capture/xgui/gmax3412_capture_v1_0.tcl",
+    "sha256": "dd934042e85e5c7c350018d793ed93ad90845122eb87e700574cc97195698c45"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\hardware\\insert_receiver_ila.tcl",
+    "destination": "hardware/scripts/insert_receiver_ila.tcl",
+    "sha256": "3960a2e739bee49d0347b43ec2ff26b337c05911f838c0bbd1eee9df55fa2003"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\hardware\\scripts\\vivado_local_bootstrap.tcl",
+    "destination": "hardware/scripts/vivado_local_bootstrap.tcl",
+    "sha256": "779ff1162e0ba9a4b509703ed1b5bd1ad2fd8110c20cf7ea6a48c62282b7c1b8"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\hardware\\rtl\\fh_router.v",
+    "destination": "hardware/rtl/fh_router.v",
+    "sha256": "4426cf9543cb83f9725b34bfb08b15e64caf77e9ab797173c23f199c5303a49a"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\hardware\\constraints\\emulator_cdc.xdc",
+    "destination": "hardware/constraints/emulator_cdc.xdc",
+    "sha256": "614417a8f8ed517345f8614897d462ab1cc8946f7731dcff572c9865d280df70"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\CMakeLists.txt",
+    "destination": "software/app/src/CMakeLists.txt",
+    "sha256": "3cfd3fa0e1b80a197fbcb07df11b42348eb49f93aad5919ad222a318db3d644c"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\dual_stream.h",
+    "destination": "software/app/src/dual_stream.h",
+    "sha256": "4ea2ba6a01b159407c63d375746ec4bca6d3798d309af13a495f27b055fe46cc"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\Empty_applicationExample.cmake",
+    "destination": "software/app/src/Empty_applicationExample.cmake",
+    "sha256": "1b388c8c38ce3dde0e8d9b40bf8712f5dc1d7d0652f711c689df3f053e9710eb"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_emulator_tables.h",
+    "destination": "software/app/src/fh_emulator_tables.h",
+    "sha256": "eb20c1f95347d4e4ea0e89dc701ee3675c7875435f5f06d576c3214a1e41f23e"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_eth_server.c",
+    "destination": "software/app/src/fh_eth_server.c",
+    "sha256": "d893ddf59141cb084ff79f0d0e9d290f50731944ad568c48280dd2449261ab74"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_eth_server.h",
+    "destination": "software/app/src/fh_eth_server.h",
+    "sha256": "46024f6d3cb7fadd00c7ca407a4b2f11b304046810715543ed7f7a5045c3cd37"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_frame_buffer.h",
+    "destination": "software/app/src/fh_frame_buffer.h",
+    "sha256": "28f5b4b994eb1bbec67e8ea948530bfd6d27efc4d49bf4cc30f3b97b685f5d69"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_frame_export.c",
+    "destination": "software/app/src/fh_frame_export.c",
+    "sha256": "c1a949bbbbf55d670191c99bdc16c93110b784c5ada2a0312ade12dea0dd51d2"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_frame_export.h",
+    "destination": "software/app/src/fh_frame_export.h",
+    "sha256": "c4a7a0584ba990f53cd3b3ae9d64adf352706f4875001712bfc0a8d4f1ca155f"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_router.c",
+    "destination": "software/app/src/fh_router.c",
+    "sha256": "099e80acbc52a6a607acf628a2609464153063cddf1124ac3f8a2e331281edaf"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_router.h",
+    "destination": "software/app/src/fh_router.h",
+    "sha256": "cedb643cfb8b08882c126ac29d817a00d53de637dc860507bd0917b680eb53bb"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_version.h",
+    "destination": "software/app/src/fh_version.h",
+    "sha256": "1e5a165dc19032efb3603521936e4e3958f5342cfc5d3e4c3326e821bb1c576c"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\lscript.ld",
+    "destination": "software/app/src/lscript.ld",
+    "sha256": "a5a2c801efccec45830583ee656255568d89f8e9126bd6a240705a17f1da6c38"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\main.c",
+    "destination": "software/app/src/main.c",
+    "sha256": "b08ff2fecb49cd5a92f8c27bb24b28157c2bcd6719efb36bdb70a61b0cf462a1"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\UserConfig.cmake",
+    "destination": "software/app/src/UserConfig.cmake",
+    "sha256": "bcc54ba32720a98efa9e4326fad25a6a705419d3a27015c7f0962a77a7b58e4b"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\software\\FH_Carrier_Test\\src\\dual_stream.h",
+    "destination": "software/app/src/dual_stream.h",
+    "sha256": "55b535714ab1aa2e5658bd46d476918e537a458929cfc0c62b7ebcc4292b04eb"
+  },
+  {
+    "source": "C:\\Projects\\FH_Bringup\\software\\FH_Carrier_Test\\src\\fh_sensor_control.h",
+    "destination": "software/app/src/fh_sensor_control.h",
+    "sha256": "d2f09f0b2683437e33c6c55be77a1ddc5157769fb6475ffcfc1fbdc8bcab88ae"
+  },
+  {
+    "source": "C:\\Projects\\FH_Emulator\\scripts\\software.ps1",
+    "destination": "scripts/software.ps1",
+    "sha256": "22e5b6e26872d50910013e6fd16e5bff5ddaa5bce7606ca04338446434e4f777"
+  }
+]
