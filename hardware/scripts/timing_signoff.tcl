@@ -5,6 +5,23 @@ proc require_calibration_sync {} {
     if {[llength $pins] != 1} {error "Expected exactly one calibration synchronizer input"}
 }
 
+proc require_routed_paths {} {
+    foreach pin {BUFGCE_RXG_DIV5_inst BUFGCE0_DIV_inst} {
+        set source [get_pins u_gmax_b_rx/u_training/u_gmax3412_iob_clock/$pin/O]
+        if {![llength [get_clocks -of_objects $source]]} {
+            error "Sensor B routed clock is missing at $pin/O"
+        }
+    }
+    foreach delay {max min} {
+        set path [get_timing_paths -delay_type $delay -max_paths 1]
+        if {![llength $path]} {error "No routed $delay timing path returned"}
+        set slack [get_property SLACK $path]
+        if {![string is double -strict $slack] || $slack < 0} {
+            error "Routed $delay timing failed: slack=$slack ns, [get_property STARTPOINT_PIN $path] -> [get_property ENDPOINT_PIN $path]"
+        }
+    }
+}
+
 proc require_timing_summary {report} {
     if {![regexp {WNS\(ns\)[^\n]*WPWS\(ns\)[^\n]*\n[^\n]*\n([^\n]+)} $report all row]} {
         error "Missing timing summary table"

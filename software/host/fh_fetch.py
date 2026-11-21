@@ -17,6 +17,7 @@ import socket
 import struct
 import sys
 import zlib
+from datetime import datetime, timezone
 from pathlib import Path
 from fh_route import validate_geometry
 
@@ -53,6 +54,16 @@ def read_line(sock: socket.socket, max_length: int = 4096, prefix: bytes = b'') 
     return buf.decode('ascii').strip()
 
 
+def frame_times(utc_us):
+    """Format acquisition time using this client's offset on the capture date."""
+    if not utc_us:
+        return None, None
+    seconds, micros = divmod(utc_us, 1_000_000)
+    utc = datetime.fromtimestamp(seconds, timezone.utc).replace(microsecond=micros)
+    return (utc.isoformat(timespec='microseconds').replace('+00:00', 'Z'),
+            utc.astimezone().isoformat(timespec='microseconds'))
+
+
 def fetch_image(sock: socket.socket, out: Path, expected_id=None, expected_sensor=None,
                 progress=None, cancelled=None, quiet=False) -> dict:
     first = recv_exact(sock, 4)
@@ -62,13 +73,25 @@ def fetch_image(sock: socket.socket, out: Path, expected_id=None, expected_senso
         raise ProtocolError(f'unknown image response magic {first!r}')
     b = first + recv_exact(sock, HEADER.size - 4)
     magic, version, sensor, kind, flags, fid, pulse, width, height, length, roi_y = HEADER.unpack(b)
-    if version not in (1, 2) or sensor not in (0, 1) or kind not in (1, 2):
+    if version not in (1, 2, 3, 4) or sensor not in (0, 1) or kind not in (1, 2):
         raise ProtocolError('unsupported protocol/version/image fields')
     ox, oy, sx, sy = (0, roi_y, 1, 1)
-    if version == 2:
+    geometry_version = 1 if version in (1, 3) else 2
+    if geometry_version == 2:
         ox, oy, sx, sy = struct.unpack('<IIII', recv_exact(sock, 16))
+    timing = {}
+    if version in (3, 4):
+        rise, fall, utc, last_set, pc_set = struct.unpack('<QQQII', recv_exact(sock, 32))
+        if not 0 < rise < fall or pc_set not in (0, 1) or utc >= (1 << 32)*1_000_000:
+            raise ProtocolError('Invalid frame trigger timestamps')
+        utc_text, local_text = frame_times(utc)
+        timing = dict(trigger_ticks=rise, end_ticks=fall, utc_us=utc,
+                      utc_time=utc_text, local_time=local_text,
+                      rtc_set_seconds=last_set, rtc_pc_set=pc_set,
+                      time_source=('PC-set RTC' if pc_set else 'ZU7EV RTC') if utc else 'unset',
+                      sync_age_us=utc - last_set*1_000_000 if 1577836800 <= last_set <= utc//1_000_000 else None)
     try:
-        validate_geometry(version, flags, kind, width, height, roi_y, ox, oy, sx, sy)
+        validate_geometry(geometry_version, flags, kind, width, height, roi_y, ox, oy, sx, sy)
     except ValueError as exc:
         raise ProtocolError(str(exc)) from exc
     if length != width * height * 2 or length > MAX_PAYLOAD:
@@ -102,6 +125,7 @@ def fetch_image(sock: socket.socket, out: Path, expected_id=None, expected_senso
         temp.unlink(missing_ok=True)
         raise
     meta = {
+        **timing,
         'protocol': version, 'frame_id': fid, 'timer_pulse': pulse,
         'sensor': sensor, 'type': 'FULL' if kind == 1 else 'ROI',
         'width': width, 'height': height, 'roi_y': roi_y,

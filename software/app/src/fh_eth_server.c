@@ -52,7 +52,7 @@
 
 #define FH_ETH_CHUNK 1024U
 #define FH_ETH_MAX_BATCH 8U
-#define FH_ETH_TEXT_CAP 30000U
+#define FH_ETH_TEXT_CAP 49152U
 #define FH_ETH_PROTO_VERSION 1U
 
 /* Binary FHIM header, exactly 32 bytes, LITTLE ENDIAN:
@@ -74,7 +74,8 @@ typedef struct {
     u32 text_len, text_pos;
     TxFrame frames[FH_ETH_MAX_BATCH];
     u8 frame_count, frame_index;
-    u8 header[48];
+    u8 header[80];
+    int with_time;
     u32 header_len, payload_bytes;
     FhRoute route;
     FhRouteGeometry geometry;
@@ -406,6 +407,18 @@ static void prepare_header(void)
         Conn.header_len=48; Conn.payload_bytes=g->bytes;
         Conn.route_started=monotonic_us(); Conn.tx_state=TX_ROUTE_WAIT;
     }
+    if (Conn.with_time) {
+        u64 values[]={f->rec.trigger_ticks,f->rec.end_ticks,f->rec.utc_us};
+        Conn.header[4]+=2;
+        for (unsigned i=0;i<3;i++) {
+            put_u32le(Conn.header+Conn.header_len,(u32)values[i]);
+            put_u32le(Conn.header+Conn.header_len+4,(u32)(values[i]>>32));
+            Conn.header_len+=8;
+        }
+        put_u32le(Conn.header+Conn.header_len,f->rec.rtc_set_seconds);
+        put_u32le(Conn.header+Conn.header_len+4,0U); /* Reserved legacy PC-set flag. */
+        Conn.header_len+=8;
+    }
 }
 
 static void parse_command(void)
@@ -418,7 +431,8 @@ static void parse_command(void)
     char row[170];
 
     parsed=0;
-    token=strtok(Conn.command," \t");
+    Conn.with_time=strncmp(Conn.command,"TIME ",5)==0;
+    token=strtok(Conn.command+(Conn.with_time?5:0)," \t");
     while (token && parsed<10) {
         tokens[parsed++]=token;
         token=strtok(NULL," \t");
@@ -446,10 +460,12 @@ static void parse_command(void)
     }
     op=tokens[0];
     if (strcmp(op,"STATUS") == 0 && parsed == 1) {
+        char rtc[320];
+        fh_rtc_status(rtc,sizeof rtc);
         snprintf(Conn.text,sizeof Conn.text,
-                 "STATUS protocol=1 mode=stopped-only entries=%lu ready=%u capture=%u router=%u routed_protocol=2 release=" FH_RELEASE " release_state=" FH_RELEASE_STATE "\n",
+                 "STATUS protocol=1 timestamps=1 mode=stopped-only entries=%lu ready=%u capture=%u router=%u routed_protocol=2 release=" FH_RELEASE " release_state=" FH_RELEASE_STATE " %s\n",
                  (unsigned long)fh_frame_count(), (unsigned)fh_frame_is_ready(),
-                 (unsigned)fh_frame_capture_active(), (unsigned)fh_router_available());
+                 (unsigned)fh_frame_capture_active(), (unsigned)fh_router_available(),rtc);
         Conn.text_len=(u32)strlen(Conn.text); Conn.text_pos=0U;
         Conn.tx_state=TX_TEXT;
         return;
@@ -467,6 +483,12 @@ static void parse_command(void)
                 r.type==FH_FRAME_FULL?"FULL":"ROI",(unsigned long)r.bytes,
                 (unsigned long long)r.address[0],
                 (unsigned long long)r.address[1],(unsigned long)r.roi_y);
+            if (Conn.with_time) {
+                size_t end=strlen(row)-1U;
+                snprintf(row+end,sizeof row-end," %llu %llu %llu %lu %lu\n",
+                         (unsigned long long)r.trigger_ticks,(unsigned long long)r.end_ticks,
+                         (unsigned long long)r.utc_us,(unsigned long)r.rtc_set_seconds,0UL);
+            }
             if (!append_line(row)) { set_reply("ERR INTERNAL LUT text too large\n");return; }
         }
         Conn.tx_state=TX_TEXT;return;
@@ -977,6 +999,7 @@ int fh_eth_serve(const u8 mac[6])
             if (c=='D' || c=='d') ethernet_diagnostics();
 
         }
+        time_service();
         RxDelivered += (u32)xemacif_input(&Netif);
         service_timers();
         if (reported_link != (int)netif_is_link_up(&Netif)) {

@@ -4,11 +4,12 @@ module tb_gmax3412_dual;
  parameter [31:0] PULSE_BASE=0;
  reg clk=0;always #4 clk=~clk;
  reg resetn=0,calib_ready=1;reg [31:0] control=0;wire [31:0] status;
+ wire [3:0] texp_drive;
  wire [31:0] awaddr,wdata,araddr;wire awvalid,wvalid,arvalid,bready,rready,trigger_pair,readout_pair;
  reg awready=0,wready=0,arready=0,bvalid=0,rvalid=0;
  reg [1:0] bresp=0,rresp=0;reg [31:0] rdata=0;
  wire [2:0] awprot,arprot;wire [3:0] wstrb;
- gmax3412_dual_ring #(.RESET_WAIT(12),.POLL_LIMIT(200000),.TICKS_PER_US(1),.IMAGE_WIDTH(16),.BUFFER_BYTES(32'd262144)) dut(.*,
+ gmax3412_dual_ring #(.RESET_WAIT(12),.POLL_LIMIT(200000),.TICKS_PER_US(1),.IMAGE_WIDTH(16),.BUFFER_BYTES(32'd262144)) dut(.*, .rtc_seconds_irq(1'b0), .texp_pins(texp_drive[1:0]),
  .m_axi_awaddr(awaddr),.m_axi_awprot(awprot),.m_axi_awvalid(awvalid),.m_axi_awready(awready),
  .m_axi_wdata(wdata),.m_axi_wstrb(wstrb),.m_axi_wvalid(wvalid),.m_axi_wready(wready),
  .m_axi_bresp(bresp),.m_axi_bvalid(bvalid),.m_axi_bready(bready),

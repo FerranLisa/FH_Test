@@ -114,8 +114,8 @@ def status_request(sock):
     return fields
 
 
-def list_request(sock):
-    sock.sendall(b'LIST\n')
+def list_request(sock, timestamps=False):
+    sock.sendall(b'TIME LIST\n' if timestamps else b'LIST\n')
     line = read_line(sock)
     if not line.startswith('COUNT '):
         raise ProtocolError(line)
@@ -125,11 +125,17 @@ def list_request(sock):
     rows, ids = [], set()
     for _ in range(count):
         fields = read_line(sock).split()
-        if len(fields) != 8 or fields[0] != 'FRAME':
+        if len(fields) != (13 if timestamps else 8) or fields[0] != 'FRAME':
             raise ProtocolError('Invalid catalog record')
-        _, fid, pulse, kind, size, addr0, addr1, roi_y = fields
+        _, fid, pulse, kind, size, addr0, addr1, roi_y = fields[:8]
         row = dict(frame_id=int(fid), timer_pulse=int(pulse), type=kind,
                    bytes=int(size), address0=int(addr0, 16), address1=int(addr1, 16), roi_y=int(roi_y))
+        if timestamps:
+            rise, fall, utc, last_set, pc_set = map(int, fields[8:])
+            if not (0 < rise < fall < 1 << 64 and 0 <= utc < (1 << 32)*1000000
+                    and 0 <= last_set < 1 << 32 and pc_set in (0, 1)):
+                raise ProtocolError('Invalid catalog timestamps')
+            row.update(trigger_ticks=rise, end_ticks=fall, utc_us=utc, rtc_set_seconds=last_set, rtc_pc_set=pc_set)
         if (kind not in ('FULL', 'ROI') or row['frame_id'] in ids or
                 not 0 <= row['frame_id'] <= 0xffffffff or not 0 <= row['timer_pulse'] <= 0xffffffff or
                 row['bytes'] != 4096 * (3072 if kind == 'FULL' else 1024) * 2 or
@@ -151,7 +157,8 @@ def download_pair(sock, row, folder, progress, cancelled, route=None):
     fid = row['frame_id']
     with tempfile.TemporaryDirectory(prefix='.pair-', dir=folder) as staging:
         staging = Path(staging)
-        sock.sendall(f'GET {fid} {single_sensor}\n'.encode('ascii') if mono else route.command(fid))
+        command = f'GET {fid} {single_sensor}\n'.encode('ascii') if mono else route.command(fid)
+        sock.sendall(b'TIME ' + command if 'trigger_ticks' in row else command)
         metadata = []
         sensors = (single_sensor,) if mono else (0, 1)
         for index, sensor in enumerate(sensors):
@@ -161,6 +168,8 @@ def download_pair(sock, row, folder, progress, cancelled, route=None):
             if (meta['timer_pulse'] != row['timer_pulse'] or meta['type'] != row['type'] or
                     meta['roi_y'] != row['roi_y']):
                 raise ProtocolError('Downloaded pair does not match the selected catalog entry')
+            if any(meta.get(k) != row.get(k) for k in ('trigger_ticks', 'end_ticks', 'utc_us', 'rtc_set_seconds', 'rtc_pc_set')):
+                raise ProtocolError('Downloaded timestamps differ from catalog')
             metadata.append(meta)
             expected_origin = (0, row['roi_y']) if route.mode == 0 else ((0, 0) if route.mode == 1 else (route.x0, 1024 + route.y0))
             step = route.n if route.mode == 1 else 1

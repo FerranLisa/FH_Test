@@ -19,6 +19,8 @@
 typedef struct {
     u32 frame_id;
     u32 timer_pulse;
+    u64 trigger_ticks, end_ticks, utc_us;
+    u32 rtc_set_seconds;
     u32 type;          /* FH_FRAME_FULL or FH_FRAME_ROI */
     u32 roi_y;         /* 1024 for V30 ROI, 0 for full */
     u64 address[2];    /* FIRST PIXEL address, not slot/guard start */
@@ -34,7 +36,8 @@ int fh_frame_is_ready(void);
 int fh_frame_capture_active(void);
 u32 fh_frame_count(void);
 int fh_frame_publish(u32 frame_id, u32 pulse, u32 type,
-                     u64 addr0, u64 addr1, u32 bytes, u32 roi_y);
+                     u64 addr0, u64 addr1, u32 bytes, u32 roi_y,
+                     u64 trigger_ticks, u64 end_ticks, u64 utc_us, u32 rtc_set_seconds);
 int fh_frame_find(u32 frame_id, FhFrameRecord *out);
 int fh_frame_item_at(u32 chronological_index, FhFrameRecord *out);
 int fh_frame_address_valid(u64 address, u32 sensor, u32 bytes);

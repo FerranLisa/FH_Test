@@ -11,6 +11,7 @@
 typedef struct {
     /* TimerPulse: 1-based per acquisition, counts skipped ticks, wraps at 2^32. */
     u32 FrameID, Bytes, ROI, Seed, Valid, TimerPulse;
+    u64 trigger_ticks, end_ticks;
     UINTPTR Addr;
 } FhFrameAddress;
 int fh_frame_lookup(u32 FrameID, u32 sensor, FhFrameAddress *entry);

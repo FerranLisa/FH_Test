@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x87CB350827679164",
+      "boundary_crc": "0xFC4A82B6BD6D60B6",
       "device": "xczu7ev-ffvc1156-2-i",
       "gen_directory": "gen",
       "name": "design_1",
@@ -496,8 +496,18 @@
         "left": "191",
         "right": "0"
       },
+      "texp_drive": {
+        "direction": "O",
+        "left": "3",
+        "right": "0"
+      },
       "stereo_texp": {
         "direction": "O"
+      },
+      "texp_pins": {
+        "direction": "I",
+        "left": "1",
+        "right": "0"
       }
     },
     "components": {
@@ -2785,7 +2795,7 @@
             "value": "0"
           },
           "PSU__IRQ_P2F_RTC_SECONDS__INT": {
-            "value": "0"
+            "value": "1"
           },
           "PSU__IRQ_P2F_SATA__INT": {
             "value": "0"
@@ -5613,11 +5623,31 @@
           "calib_ready": {
             "direction": "I"
           },
+          "rtc_seconds_irq": {
+            "type": "intr",
+            "direction": "I",
+            "parameters": {
+              "SENSITIVITY": {
+                "value": "LEVEL_HIGH",
+                "value_src": "constant"
+              }
+            }
+          },
+          "texp_pins": {
+            "direction": "I",
+            "left": "1",
+            "right": "0"
+          },
           "trigger_pair": {
             "direction": "O"
           },
           "readout_pair": {
             "direction": "O"
+          },
+          "texp_drive": {
+            "direction": "O",
+            "left": "3",
+            "right": "0"
           },
           "control": {
             "direction": "I",
@@ -6730,13 +6760,13 @@
           "gmax_capture/clk",
           "gmax_capture_b/clk",
           "pl_ddr_smc/aclk1",
-          "gmax_dual_ring/clk",
           "fh_router_0/clk",
           "fh_export_dma/s_axi_lite_aclk",
           "fh_export_dma/m_axi_mm2s_aclk",
           "fh_export_dma/m_axi_s2mm_aclk",
           "gmax_capture/emu_clk",
-          "gmax_capture_b/emu_clk"
+          "gmax_capture_b/emu_clk",
+          "gmax_dual_ring/clk"
         ]
       },
       "gmax_emu_clock_locked": {
@@ -6761,9 +6791,9 @@
           "gmax_capture_dma_b/axi_resetn",
           "gmax_capture/resetn",
           "gmax_capture_b/resetn",
-          "gmax_dual_ring/resetn",
           "fh_router_0/resetn",
-          "fh_export_dma/axi_resetn"
+          "fh_export_dma/axi_resetn",
+          "gmax_dual_ring/resetn"
         ]
       },
       "gmax_emu_zero_dout": {
@@ -6879,6 +6909,18 @@
           "stereo_texp"
         ]
       },
+      "texp_drive": {
+        "ports": [
+          "gmax_dual_ring/texp_drive",
+          "texp_drive"
+        ]
+      },
+      "texp_pins_1": {
+        "ports": [
+          "texp_pins",
+          "gmax_dual_ring/texp_pins"
+        ]
+      },
       "xlconstant_0_dout": {
         "ports": [
           "xlconstant_0/dout",
@@ -6946,6 +6988,12 @@
           "proc_sys_reset_0/ext_reset_in",
           "ila_0/probe6",
           "gmax_emu_reset/ext_reset_in"
+        ]
+      },
+      "zynq_ultra_ps_e_0_ps_pl_irq_rtc_seconds": {
+        "ports": [
+          "zynq_ultra_ps_e_0/ps_pl_irq_rtc_seconds",
+          "gmax_dual_ring/rtc_seconds_irq"
         ]
       }
     },

@@ -55,7 +55,8 @@ int fh_frame_address_valid(u64 address, u32 sensor, u32 bytes)
 }
 
 int fh_frame_publish(u32 frame_id, u32 pulse, u32 type,
-                     u64 addr0, u64 addr1, u32 bytes, u32 roi_y)
+                     u64 addr0, u64 addr1, u32 bytes, u32 roi_y,
+                     u64 trigger_ticks, u64 end_ticks, u64 utc_us, u32 rtc_set_seconds)
 {
     int candidate = -1;
     u32 i;
@@ -95,6 +96,10 @@ int fh_frame_publish(u32 frame_id, u32 pulse, u32 type,
         --live_count;
     }
     entries[candidate].rec.frame_id = frame_id;
+    entries[candidate].rec.trigger_ticks = trigger_ticks;
+    entries[candidate].rec.end_ticks = end_ticks;
+    entries[candidate].rec.utc_us = utc_us;
+    entries[candidate].rec.rtc_set_seconds = rtc_set_seconds;
     entries[candidate].rec.timer_pulse = pulse;
     entries[candidate].rec.type = type;
     entries[candidate].rec.roi_y = roi_y;

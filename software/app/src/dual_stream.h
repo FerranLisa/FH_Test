@@ -9,7 +9,7 @@ static int DualOwnershipBlocked;
 static int DualLastCaptureVerified;
 static u32 dual_diag(u32 bank)
 {
-    DualControl=(DualControl&~15U)|bank;
+    DualControl=(DualControl&~255U)|bank;
     cap_write(DUAL_GPIO,DualControl);return cap_read(DUAL_GPIO+8U);
 }
 static void dual_cmd(u32 op,u32 value)
@@ -17,6 +17,32 @@ static void dual_cmd(u32 op,u32 value)
     DualControl=((DualControl^0x80000000U)&0x80000000U)|(op<<28)|((value&0xFFFFFU)<<8)|1U;
     cap_write(DUAL_GPIO,DualControl);usleep(2U);
 }
+static int gmax_fpga_pulse(unsigned mask, u32 duration)
+{
+    if (!gmax_pl_ready() || DualOwnershipBlocked || !duration || duration>0xfffffU)
+        return XST_FAILURE;
+    DualControl=cap_read(DUAL_GPIO);
+    if (!(dual_diag(15)&0x20000000U)) {
+        xil_printf("Load the sensor-selective FPGA exposure bitstream.\r\n");
+        return XST_FAILURE;
+    }
+    if ((dual_diag(15)&0x40000000U) || (dual_diag(1)&1U) || !dual_diag(12))
+        return XST_FAILURE;
+    /* Opcode zero latches duration and output mask on the toggle transition. */
+    DualControl=((DualControl^0x80000000U)&0x80000000U)|(duration<<8)|(mask<<4);
+    cap_write(DUAL_GPIO,DualControl);
+    u64 start=capture_us();
+    while (dual_diag(15)&0x40000000U) {
+        if (capture_us()-start>duration+100000U) {
+            DualOwnershipBlocked=1;
+            xil_printf("FPGA exposure did not finish. Reset/relaunch required.\r\n");
+            return XST_FAILURE;
+        }
+    }
+    return XST_SUCCESS;
+}
+#include "fh_frame_time.h"
+
 /* Frame_Addr_LUT is one stereo table: Master Addr plus 2 GiB gives Slave Addr.
  * Entries publish after both DMA completions, and are invalidated before overwrite.
  * Callers serialize access to the GPIO command port. For live image copies, repeat
@@ -30,6 +56,8 @@ static void fh_frame_entry(u32 index, FhFrameAddress *entry)
     entry->Addr=(UINTPTR)(((u64)dual_diag(5)<<32)|dual_diag(3));
     entry->Bytes=dual_diag(6);entry->Seed=dual_diag(8);
     u32 flags=dual_diag(7);entry->Valid=flags&1U;entry->ROI=(flags>>1)&1U;
+    entry->trigger_ticks=time_read64(0x20);
+    entry->end_ticks=time_read64(0x22);
     dual_cmd(7,0);
 }
 int fh_frame_read_slot(u32 slot, u32 sensor, FhFrameAddress *entry)
@@ -146,9 +174,11 @@ static void test_gmax3412_dual(void)
     if(dual_diag(4)||dual_diag(8)!=R||dual_diag(9)!=4000U) {ok=0;goto cleanup;}
     xil_printf("  R=%lu; one stereo trigger every 4000 us; repeat F then R ROI. [GMAX3412-A + GMAX3412-B]\r\n",(unsigned long)R);
     xil_printf("  Exposure=%lu us; 16 channels; fixed exposure; busy timer ticks are discarded. [GMAX3412-A + GMAX3412-B]\r\n",(unsigned long)exposure_us);
+    time_prepare();
     start=capture_us();dual_cmd(2,0);
     if(!(dual_diag(1)&1U)){ok=0;goto cleanup;}
     do {
+        time_service();
         status=dual_diag(1);
         if(!stopping && ((seconds && capture_us()-start>seconds*1000000ULL)||
            (XUartPs_IsReceiveData(STDIN_BASEADDRESS)&&inbyte()==27))) {
@@ -198,7 +228,8 @@ static int fh_frame_import_v30_lut(void)
     /* Mirror remains not-ready until every slot and final status agree. */
     for (i=0U;i<256U;++i) {
         if (!fh_frame_read_slot(i,0U,&row)) continue;
-        if (row.Bytes!=(row.ROI?FH_FRAME_ROI_BYTES:FH_FRAME_FULL_BYTES) ||
+        if (!row.trigger_ticks || row.end_ticks<=row.trigger_ticks ||
+            row.Bytes!=(row.ROI?FH_FRAME_ROI_BYTES:FH_FRAME_FULL_BYTES) ||
             !fh_frame_address_valid((u64)row.Addr,0U,row.Bytes) ||
             !fh_frame_address_valid((u64)row.Addr+0x80000000ULL,1U,row.Bytes))
             goto fail;
@@ -221,7 +252,8 @@ static int fh_frame_import_v30_lut(void)
         if (!fh_frame_publish(f->FrameID,f->TimerPulse,
                 f->ROI?FH_FRAME_ROI:FH_FRAME_FULL,
                 (u64)f->Addr,(u64)f->Addr+0x80000000ULL,
-                f->Bytes,f->ROI?1024U:0U)) goto fail;
+                f->Bytes,f->ROI?1024U:0U,
+                f->trigger_ticks,f->end_ticks,time_utc_us(f->trigger_ticks),time_last_set)) goto fail;
     }
     /* Overlap eviction must agree EXACTLY with the HW valid-entry count. */
     if (fh_frame_count()!=count) goto fail;

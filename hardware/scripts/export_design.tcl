@@ -6,6 +6,7 @@ if {![llength [get_files -quiet */insert_receiver_ila.tcl]]} {
     add_files -fileset utils_1 -norecurse [file join $hw scripts insert_receiver_ila.tcl]
 }
 open_bd_design [get_files */design_1.bd]
+source [file join $hw scripts connect_frame_time.tcl]
 validate_bd_design
 generate_target all [get_files */design_1.bd]
 file mkdir [file join $hw exports]

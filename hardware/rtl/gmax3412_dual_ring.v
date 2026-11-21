@@ -5,8 +5,10 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
  IMAGE_WIDTH=4096,IMAGE_HEIGHT=3072,ROI_HEIGHT=1024, BUFFER_BYTES=32'h80000000)(
  (* X_INTERFACE_PARAMETER="ASSOCIATED_BUSIF M_AXI, ASSOCIATED_RESET resetn, FREQ_HZ 120000000" *) input wire clk,
  (* X_INTERFACE_PARAMETER="POLARITY ACTIVE_LOW" *) input wire resetn,
- input wire calib_ready,
- output reg trigger_pair, readout_pair,
+ input wire calib_ready, rtc_seconds_irq,
+ input wire [1:0] texp_pins,
+ output wire trigger_pair, output reg readout_pair,
+ output reg [3:0] texp_drive,
  input wire [31:0] control, output reg [31:0] status,
  output reg [31:0] m_axi_awaddr, output wire [2:0] m_axi_awprot,
  output reg m_axi_awvalid, input wire m_axi_awready,
@@ -36,6 +38,8 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
  wire [31:0] candidate=({1'b0,write_offset}+allocation>BUFFER_BYTES)?0:write_offset;
 
  
+ // Bits 0/1 drive TEXP1 A/B; bits 2/3 drive TEXP2 A/B.
+ assign trigger_pair=|texp_drive;
  reg [19:0] exposure_us=1000;
  reg [31:0] exposure_left;
  reg sensor, roi;
@@ -61,6 +65,33 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
  reg [1:0] bus;
  reg response;
  reg [31:0] readback;
+ // All edge captures use the same sampling pipeline and free-running clock.
+ reg [63:0] counter, rtc_edge;
+ reg [31:0] rtc_sequence;
+ (* ASYNC_REG="TRUE" *) reg [2:0] edge_meta, edge_sync;
+ reg [2:0] edge_previous;
+ reg [1:0] completed_edges, edges_before_trigger;
+ reg [63:0] rise[0:1], fall_time[0:1];
+ reg [63:0] frame_rise[0:255], frame_fall[0:255], query_rise, query_fall;
+ integer channel;
+ always @(posedge clk) begin
+   if (!resetn) begin
+     completed_edges<=0; counter<=0; rtc_edge<=0; rtc_sequence<=0;
+     edge_meta<=0; edge_sync<=0; edge_previous<=0;
+     for(channel=0;channel<2;channel=channel+1) begin rise[channel]<=0; fall_time[channel]<=0; end
+   end else begin
+     counter<=counter+1;
+     edge_meta<={rtc_seconds_irq,texp_pins}; edge_sync<=edge_meta; edge_previous<=edge_sync;
+     if(edge_sync[2] && !edge_previous[2]) begin rtc_edge<=counter; rtc_sequence<=rtc_sequence+1; end
+     for(channel=0;channel<2;channel=channel+1) begin
+       if(edge_sync[channel] && !edge_previous[channel]) rise[channel]<=counter;
+       if(!edge_sync[channel] && edge_previous[channel]) begin
+         fall_time[channel]<=counter;
+         completed_edges[channel]<=~completed_edges[channel];
+       end
+     end
+   end
+ end
  wire command=control[31]!=toggle;
  assign m_axi_awprot=0;assign m_axi_arprot=0;assign m_axi_wstrb=15;
  assign m_axi_bready=bus==1;assign m_axi_rready=bus==2;
@@ -81,7 +112,7 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
     10:status=usec[31:0];11:status=trigger_slots;
     12:status={31'b0,calibrated[1]};
     13:status=write_offset;
-    14:status=frame_address[31:0];15:status={30'b0,sensor,roi};
+    14:status=frame_address[31:0];15:status={1'b1,trigger_pair,1'b1,27'b0,sensor,roi};
    endcase
    if(lookup_mode) case(control[3:0])
     2:status=query_id;
@@ -94,13 +125,29 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
     10:status=query_tick;
     default:begin end
    endcase
+   if(control[7:4]==1) case(control[3:0])
+     0:status=32'h46545431;
+     1:status=rtc_sequence;
+     2:status=rtc_edge[31:0]; 3:status=rtc_edge[63:32];
+     4:status=counter[31:0]; 5:status=counter[63:32];
+     6:status=rise[0][31:0]; 7:status=rise[0][63:32];
+     8:status=fall_time[0][31:0]; 9:status=fall_time[0][63:32];
+     10:status=rise[1][31:0]; 11:status=rise[1][63:32];
+     12:status=fall_time[1][31:0]; 13:status=fall_time[1][63:32];
+     default:status=0;
+   endcase
+   if(control[7:4]==2) case(control[3:0])
+     0:status=query_rise[31:0]; 1:status=query_rise[63:32];
+     2:status=query_fall[31:0]; 3:status=query_fall[63:32];
+     default:status=0;
+   endcase
  end
  always @(posedge clk) begin
   if(!resetn) begin
    write_offset<=0;reserved_offset<=0;next_frame_id<=0;reserved_id<=0;id_exhausted<=0;
    lut_write<=0;scan_index<=0;lut_valid<=0;lookup_mode<=0;
    query_tick<=0;reserved_tick<=0;query_id<=0;query_offset<=0;query_length<=0;query_seed<=0;query_valid<=0;query_roi<=0;
-   trigger_pair<=0;exposure_left<=0;readout_pair<=0;head_a<=0;source_a<=0;source_b<=0;sensor<=0;roi<=0;
+   texp_drive<=0;exposure_left<=0;readout_pair<=0;head_a<=0;source_a<=0;source_b<=0;sensor<=0;roi<=0;
    full_count<=0;roi_count<=0;ratio<=24;sequence_slot<=0;
    usec<=0;slot_ticks<=0;next_trigger<=0;epoch<=0;sub_us<=0;trigger_slots<=0;
    toggle<=0;running<=0;done<=0;stopped<=0;stop_request<=0;
@@ -111,7 +158,7 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
   end else begin
    response<=0;readout_pair<=0;
    if(exposure_left!=0) exposure_left<=exposure_left-1;
-   else trigger_pair<=0;
+   else texp_drive<=0;
    if(m_axi_awvalid && m_axi_awready) m_axi_awvalid<=0;
    if(m_axi_wvalid && m_axi_wready) m_axi_wvalid<=0;
    if(m_axi_arvalid && m_axi_arready) m_axi_arvalid<=0;
@@ -127,7 +174,14 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
     toggle<=control[31];
     if(control[30:28]!=6) lookup_mode<=0;
     case(control[30:28])
+     // One-shot command latches the output mask; zero retains legacy stereo.
+     0:if(!running && !trigger_pair && calibrated[1] && control[27:8]!=0) begin
+       texp_drive<=control[7:4]==0 ? 4'b0011 : control[7:4];
+       exposure_left<=control[27:8]*TICKS_PER_US-1;
+     end
      6:begin
+       query_rise<=frame_rise[control[15:8]];
+       query_fall<=frame_fall[control[15:8]];
        query_tick<=frame_ticks[control[15:8]];
        lookup_mode<=1;query_id<=frame_ids[control[15:8]];
        query_offset<=frame_offsets[control[15:8]];query_length<=frame_lengths[control[15:8]];
@@ -140,7 +194,7 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
      end
      4:if(!running && control[27:8]!=0) exposure_us<=control[27:8];
      5:if(!running) error<=1; // Separate full/ROI capacities removed.
-     2:if(!running && error==0 && calibrated[1] && !id_exhausted) begin
+     2:if(!running && !trigger_pair && error==0 && calibrated[1] && !id_exhausted) begin
         begin
          write_offset<=0;lut_write<=0;lut_valid<=0;running<=1;done<=0;stopped<=0;stop_request<=0;completed<=0;
          full_count<=0;roi_count<=0;sensor<=0;roi<=0;
@@ -214,8 +268,9 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
          if(stop_request) state<=89;
          else if(!epoch || slot_ticks==next_trigger) begin
            if(!epoch) begin epoch<=1;slot_ticks<=1;next_trigger<=SLOT_CYCLES;trigger_slots<=1;end
+           edges_before_trigger<=completed_edges;
            reserved_tick<=trigger_slots+1;
-           trigger_pair<=1;exposure_left<=exposure_us*TICKS_PER_US-1;state<=22;
+           texp_drive<=4'b0011;exposure_left<=exposure_us*TICKS_PER_US-1;state<=22;
          end
         end
       22:begin read_reg(dma_base+32'h0034);state<=23;end
@@ -234,8 +289,12 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
       26:begin read_reg(dma_base+32'h0058);state<=35;end
       35:if(readback!=frame_bytes) begin error<=6;state<=89;end
          else if(!sensor) begin sensor<=1;state<=22;end
+         else if ((completed_edges ^ edges_before_trigger)!=2'b11) state<=35;
+         else if (rise[0]!=rise[1] || fall_time[0]!=fall_time[1]) begin error<=9;state<=89;end
          else begin
           // Publish one stereo record only after BOTH DMA/checker completions.
+          frame_rise[lut_write]<=rise[0];
+          frame_fall[lut_write]<=fall_time[0];
           frame_ticks[lut_write]<=reserved_tick;
           frame_ids[lut_write]<=reserved_id;frame_offsets[lut_write]<=reserved_offset;
           frame_lengths[lut_write]<=frame_bytes;frame_rois[lut_write]<=roi;

@@ -21,6 +21,7 @@ if QtCore.__name__.startswith('PyQt6'):
 else:
     from PyQt5 import QtSerialPort
 from fh_test_backend import CaptureSequence, status_request, list_request, download_pair
+from fh_fetch import frame_times
 from fh_route import Route
 from fh_version import RELEASE_LABEL
 from fh_program import default_paths, launch as launch_jtag
@@ -85,7 +86,9 @@ class Worker(QtCore.QThread):
                         if time.monotonic() >= deadline:
                             raise TimeoutError('Ethernet not ready after 45 seconds; check UART link status and use Attach to retry.') from exc
                         self.cancelled.wait(min(0.5, max(0, deadline - time.monotonic())))
-                rows = self.request(list_request) if status['ready'] == '1' else []
+                rows = []
+                if status['ready'] == '1':
+                    rows = self.request(lambda sock: list_request(sock, status.get('timestamps') == '1'))
                 result = dict(status=status, rows=rows)
             else:
                 if self.operation == 'download':
@@ -165,7 +168,13 @@ class FHTest(QtWidgets.QMainWindow):
                            enum(QtCore.Qt, 'AlignmentFlag', 'AlignVCenter'))
         return label
 
+    def set_board_rtc(self):
+        self.send(f'T:{int(time.time())}\r'.encode('ascii'))
+
     def build_ui(self):
+        board_menu = self.menuBar().addMenu('Board')
+        self.set_rtc_action = board_menu.addAction('Set ZU7EV RTC from PC clock')
+        self.set_rtc_action.triggered.connect(self.set_board_rtc)
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
         layout = QtWidgets.QVBoxLayout(central)
@@ -213,10 +222,10 @@ class FHTest(QtWidgets.QMainWindow):
             capture.addWidget(widget)
         self.start = self.button(capture, 'Start capture', self.start_capture)
         self.sensor_select = QtWidgets.QComboBox()
-        self.sensor_select.addItems(['Sensor 1', 'Sensor 2'])
+        self.sensor_select.addItems(['Sensor 1', 'Sensor 2', 'Stereo'])
         capture.addWidget(self.sensor_select)
         self.sensor_capture = self.button(capture, 'Capture sensor', self.capture_sensor)
-        self.sensor_capture.setToolTip('Capture the selected sensor at the specified exposure and refresh Ethernet export.')
+        self.sensor_capture.setToolTip('Capture one image or a synchronized stereo pair at the specified exposure and refresh Ethernet export.')
         self.stop = self.button(capture, 'Stop capture', self.stop_capture)
         self.export = self.button(capture, 'Enter export', self.enter_export)
         self.leave = self.button(capture, 'Return to menu', self.leave_export)
@@ -256,8 +265,10 @@ class FHTest(QtWidgets.QMainWindow):
         layout.addWidget(split, 1)
         browser = QtWidgets.QWidget()
         left = QtWidgets.QVBoxLayout(browser)
-        self.table = QtWidgets.QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(['FrameID', 'Type', 'TimerPulse', 'Local'])
+        self.table = QtWidgets.QTableWidget(0, 9)
+        self.table.setHorizontalHeaderLabels(['FrameID', 'Sensor', 'Type', 'TimmerPulse', 'Counter (64-bit)', 'Measured exposure (µs)', 'UTC time', 'Local time', 'Local'])
+        self.table.setHorizontalScrollBarPolicy(enum(QtCore.Qt, 'ScrollBarPolicy', 'ScrollBarAsNeeded'))
+        self.table.setHorizontalScrollMode(enum(QtWidgets.QAbstractItemView, 'ScrollMode', 'ScrollPerPixel'))
         self.table.setSelectionBehavior(enum(QtWidgets.QAbstractItemView, 'SelectionBehavior', 'SelectRows'))
         self.table.setSelectionMode(enum(QtWidgets.QAbstractItemView, 'SelectionMode', 'SingleSelection'))
         self.table.setEditTriggers(enum(QtWidgets.QAbstractItemView, 'EditTrigger', 'NoEditTriggers'))
@@ -294,7 +305,7 @@ class FHTest(QtWidgets.QMainWindow):
         self.panels = []
         for sensor in (0, 1):
             column = QtWidgets.QVBoxLayout()
-            column.addWidget(QtWidgets.QLabel(f'Sensor {sensor}'))
+            column.addWidget(QtWidgets.QLabel(f'Sensor {sensor + 1}'))
             panel = ImagePanel()
             column.addWidget(panel, 1)
             panels.addLayout(column, 1)
@@ -400,6 +411,10 @@ class FHTest(QtWidgets.QMainWindow):
         self.notice('Requested menu help. If no response, the board may be capturing or awaiting a numeric answer; no ESC is sent automatically.')
 
     def manual_send(self, newline):
+        if self.command.text().strip().upper() == 'T' and self.sequence.state == 'menu':
+            self.set_board_rtc()
+            self.command.clear()
+            return
         try:
             data = self.command.text().encode('ascii') + (b'\r' if newline else b'')
         except UnicodeEncodeError:
@@ -443,10 +458,10 @@ class FHTest(QtWidgets.QMainWindow):
             elif event == 'export':
                 self.refresh_catalog()
         if self.pending_capture and self.sequence.state == 'menu':
-            physical = self.pending_capture == 'GMAX-A'
+            pending = self.pending_capture
             self.pending_capture = False
-            if physical:
-                self.capture_sensor()
+            if isinstance(pending, bytes):
+                self.send_sensor_capture(pending)
             else:
                 self.begin_capture()
         if self.sequence.state != old:
@@ -506,10 +521,16 @@ class FHTest(QtWidgets.QMainWindow):
         self.update_controls()
 
     def capture_sensor(self):
+        target = ('1', '2', 'S')[self.sensor_select.currentIndex()]
+        command = f'C{target}:{self.exposure.value()}\r'.encode('ascii')
         if self.sequence.state == 'export':
-            self.pending_capture = 'GMAX-A'
+            self.pending_capture = command
             self.leave_export()
-        elif self.sequence.state == 'menu' and self.send(f'C{self.sensor_select.currentIndex()+1}:{self.exposure.value()}\r'.encode('ascii')):
+        elif self.sequence.state == 'menu':
+            self.send_sensor_capture(command)
+
+    def send_sensor_capture(self, command):
+        if self.send(command):
             self.invalidate_catalog()
             self.sequence.reset('entering_export')
             self.set_deadline()
@@ -610,7 +631,7 @@ class FHTest(QtWidgets.QMainWindow):
             self.progress.setValue(100)
             for index, item in enumerate(self.rows):
                 if (item['frame_id'], item['type']) == key:
-                    self.table.setItem(index, 3, QtWidgets.QTableWidgetItem('Yes'))
+                    self.table.setItem(index, 8, QtWidgets.QTableWidgetItem('Yes'))
                     break
 
     def worker_finished(self):
@@ -631,8 +652,16 @@ class FHTest(QtWidgets.QMainWindow):
         self.table.setRowCount(len(self.rows))
         for index, row in enumerate(self.rows):
             key = (row['frame_id'], row['type'])
-            kind = 'FULL (sensor 1)' if row.get('address1') == 0 else 'FULL (sensor 2)' if row.get('address0') == 0 else row['type']
-            for col, value in enumerate((row['frame_id'], kind, row.get('timer_pulse', ''),
+            sensors = (bool(row.get('address0')), bool(row.get('address1')))
+            sensor = {(True, False): '1', (False, True): '2', (True, True): 'Stereo'}.get(sensors, '')
+            rise, fall = row.get('trigger_ticks'), row.get('end_ticks')
+            exposure = '—'
+            if rise is not None and fall is not None and fall > rise:
+                # The FH_Test capture counter runs at 120 ticks per microsecond.
+                exposure = f'{(fall - rise) / 120:.3f}'
+            utc_text, local_text = frame_times(row.get('utc_us'))
+            for col, value in enumerate((row['frame_id'], sensor, row['type'], row.get('timer_pulse', ''),
+                                         row.get('trigger_ticks', '—'), exposure, utc_text or '—', local_text or '—',
                                          'Yes' if key in self.local_files else '')):
                 self.table.setItem(index, col, QtWidgets.QTableWidgetItem(str(value)))
         self.table.resizeColumnsToContents()
@@ -794,6 +823,7 @@ class FHTest(QtWidgets.QMainWindow):
         for widget in (self.com, self.baud, self.scan):
             widget.setEnabled(not connected)
         self.start.setEnabled(connected and idle and state in ('menu', 'export'))
+        self.set_rtc_action.setEnabled(connected and idle and state == 'menu')
         self.sensor_capture.setEnabled(self.start.isEnabled())
         self.stop.setEnabled(connected and state == 'capturing')
         self.export.setEnabled(connected and idle and state == 'menu')

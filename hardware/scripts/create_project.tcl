@@ -14,9 +14,10 @@ update_ip_catalog
 add_files -norecurse [glob [file join $hw rtl *.v]]
 add_files -norecurse [file join $hw bd design_1.bd]
 open_bd_design [get_files */design_1.bd]
+source [file join $hw scripts connect_frame_time.tcl]
 source [file join $hw scripts add_router.tcl]
 set_property SYNTH_CHECKPOINT_MODE None [get_files */design_1.bd]
-set wrapper [make_wrapper -files [get_files */design_1.bd] -top]
+set wrapper [make_wrapper -files [get_files */design_1.bd] -top -force]
 add_files -norecurse $wrapper
 set_property top FH_Carrier_Bringup_top [get_filesets sources_1]
 add_files -fileset constrs_1 -norecurse [glob [file join $hw constraints *.xdc]]

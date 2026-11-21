@@ -46,7 +46,7 @@ def read_image(path, fid, sensor, kind):
     width, height = 4096, 3072 if kind == "full" else 1024
     sidecar = path.with_suffix(".json")
     meta = json.loads(sidecar.read_text(encoding="utf-8-sig")) if sidecar.exists() else {}
-    if meta.get('protocol') == 2:
+    if meta.get('protocol') in (2, 4):
         width, height = meta['width'], meta['height']
         validate_geometry(2, meta['router_mode'], 1 if kind == 'full' else 2,
                           width, height, meta['roi_y'], meta['origin_x'], meta['origin_y'],
@@ -210,7 +210,7 @@ class Viewer(QtWidgets.QMainWindow):
         self.panels = []
         for sensor in (0, 1):
             column = QtWidgets.QVBoxLayout()
-            column.addWidget(QtWidgets.QLabel(f"Sensor {sensor}"))
+            column.addWidget(QtWidgets.QLabel(f"Sensor {sensor + 1}"))
             panel = ImagePanel()
             column.addWidget(panel, 1)
             row.addLayout(column, 1)

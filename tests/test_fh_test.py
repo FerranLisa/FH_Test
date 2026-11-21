@@ -1,7 +1,9 @@
 """Host-only protocol tests; no serial port, FPGA, or network required."""
+from datetime import datetime
 import io
 from pathlib import Path
 import sys
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -108,6 +110,26 @@ class ProtocolTests(unittest.TestCase):
         header = HEADER.pack(b'FHIM', 1, 0, 2, 0, 3, 7, 4096, 1024, len(payload), 1024)
         crc = zlib.crc32(payload) ^ int(corrupt)
         return header + payload + TRAILER.pack(crc)
+
+    def test_timestamped_catalog_and_image(self):
+        rise = (1 << 54) + 5
+        fall = rise + 120000
+        utc = 1795179600123456
+        catalog = f'COUNT 1\nFRAME 3 7 ROI 8388608 1000000040 1080000040 1024 {rise} {fall} {utc} 1795179600 1\n'
+        sock = Socket(catalog.encode())
+        row, = list_request(sock, timestamps=True)
+        self.assertEqual(sock.sent, [b'TIME LIST\n'])
+        packet = bytearray(self.packet())
+        packet[4] = 3
+        packet[HEADER.size:HEADER.size] = struct.pack('<QQQII', rise, fall, utc, 1795179600, 1)
+        with tempfile.TemporaryDirectory() as folder:
+            meta = fetch_image(Socket(packet), Path(folder), 3, 0, quiet=True)
+        self.assertEqual(meta['sync_age_us'], 123456)
+        self.assertTrue(meta['utc_time'].endswith('.123456Z'))
+        self.assertEqual(datetime.fromisoformat(meta['utc_time'].replace('Z', '+00:00')),
+                         datetime.fromisoformat(meta['local_time']))
+        for key in ('trigger_ticks', 'end_ticks', 'utc_us'):
+            self.assertEqual(meta[key], row[key])
 
     def test_crc_and_progress(self):
         updates = []

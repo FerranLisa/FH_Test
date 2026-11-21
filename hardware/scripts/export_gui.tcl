@@ -16,7 +16,6 @@ report_timing_summary -report_unconstrained -file [file join $hw exports timing_
 report_pulse_width -file [file join $hw exports pulse_width.rpt]
 report_bus_skew -file [file join $hw exports bus_skew.rpt]
 report_drc -file [file join $hw exports drc.rpt]
-report_methodology -file [file join $hw exports methodology.rpt]
 source [file join $hw scripts timing_signoff.tcl]
 require_calibration_sync
 foreach filename {timing_summary bus_skew} check {require_timing_summary require_bus_skew} {
@@ -25,10 +24,9 @@ foreach filename {timing_summary bus_skew} check {require_timing_summary require
     close $fd
     $check $report
 }
-foreach delay {max min} {
-    set paths [get_timing_paths -delay_type $delay -max_paths 1]
-    if {![llength $paths] || [get_property SLACK $paths]<0} {error "Timing failed ($delay)"}
-}
+require_routed_paths
+# Methodology reprocesses XDC. Run it after checking the routed timing view.
+report_methodology -file [file join $hw exports methodology.rpt]
 if {[llength [get_drc_violations -quiet -filter {SEVERITY == Error || SEVERITY == {Critical Warning}}]]} {
     error "DRC signoff failed"
 }

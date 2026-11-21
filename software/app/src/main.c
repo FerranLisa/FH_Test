@@ -368,8 +368,7 @@ static unsigned SensorIndex;
 #define GMAX_CTRL_SYS_RST_N          (1U << 2)
 #define GMAX_CTRL_CCI_EN             (1U << 3)
 #define GMAX_CTRL_XCE_SLAMODE        (1U << 4)
-#define GMAX_CTRL_TEXP1              (1U << 5)
-#define GMAX_CTRL_TEXP2              (1U << 6)
+
 #define GMAX_CTRL_SPI_SCK            (1U << 7)
 #define GMAX_CTRL_SPI_SDI            (1U << 8)
 #define GMAX_CTRL_RXDBG_INDEX_SHIFT  9U
@@ -1276,11 +1275,12 @@ static void show_menu(void)
     xil_printf(" 8/9 - Sensor 1/2 diagnostics\r\n");
     xil_printf(" S   - SATA detection + read-only IDENTIFY (no disk writes)\r\n");
     xil_printf(" L   - Show frame storage LUT (FrameID and both DDR4 addresses)\r\n");
-    xil_printf(" C1 or C2[:exposure_us] + Enter - Capture and open Ethernet export\r\n");
+    xil_printf(" C1, C2 or CS (stereo)[:exposure_us] + Enter - Capture and open Ethernet export\r\n");
     xil_printf(" U   - Fixed-exposure 250 Hz timer stereo capture (F + R ROI, R=0..24). U:<us> sets exposure for this run.\r\n");
     xil_printf(" E   - Passive PHY observation (60s before / 120s after init)\r\n");
     xil_printf(" N   - Ethernet image server (TCP 5001; ESC stops server)\r\n");
     xil_printf(" R   - External reset test\r\n");
+    xil_printf(" T   - Set ZU7EV RTC from PC clock in FH_Test (other terminals: T:<Unix UTC seconds> + Enter)\r\n");
     xil_printf(" H   - Show menu\r\n");
     xil_printf(" ESC - Exit\r\n");
     xil_printf("----------------------------------------\r\n");
@@ -2169,8 +2169,7 @@ static void gmax_decode_ctrl(u32 Ctrl)
                (unsigned int)((Ctrl & GMAX_CTRL_CCI_EN) != 0U),
                (Ctrl & GMAX_CTRL_CCI_EN) ? "I2C" : "SPI");
     gmax_log("  XCE/SLAMODE  : %u\r\n", (unsigned int)((Ctrl & GMAX_CTRL_XCE_SLAMODE) != 0U));
-    gmax_log("  TEXP1        : %u\r\n", (unsigned int)((Ctrl & GMAX_CTRL_TEXP1) != 0U));
-    gmax_log("  TEXP2        : %u\r\n", (unsigned int)((Ctrl & GMAX_CTRL_TEXP2) != 0U));
+    gmax_log("  TEXP1/TEXP2  : FPGA counter controlled\r\n");
     gmax_log("  SPI_SCK      : %u\r\n", (unsigned int)((Ctrl & GMAX_CTRL_SPI_SCK) != 0U));
     gmax_log("  SPI_SDI      : %u\r\n", (unsigned int)((Ctrl & GMAX_CTRL_SPI_SDI) != 0U));
     gmax_log("  RXDBG slot   : %u\r\n",
@@ -2751,11 +2750,9 @@ static void gmax_power_down(void)
         return;
     }
 
-    /* Stop any trigger request immediately. */
+    /* Restore the sensor control lines. */
     (void)gmax_ctrl_update(GMAX_CTRL_CCI_EN,
                            GMAX_CTRL_XCE_SLAMODE |
-                           GMAX_CTRL_TEXP1 |
-                           GMAX_CTRL_TEXP2 |
                            GMAX_CTRL_SPI_SCK |
                            GMAX_CTRL_SPI_SDI);
 
@@ -3018,7 +3015,6 @@ static int gmax_upload_10bit_1200_config(void)
     }
 
     /* No exposure request during configuration. */
-    (void)gmax_ctrl_update(0U, GMAX_CTRL_TEXP1 | GMAX_CTRL_TEXP2);
 
     gmax_log("Writing %lu Table-16 bytes over I2C 0x10 ...\r\n",
                (unsigned long)GMAX_10B1200_CONFIG_COUNT);
@@ -3627,9 +3623,8 @@ static int gmax_pattern_test_interactive(void)
         gmax_log("REFUSED: run complete 10-bit initialization A first.\r\n");
         return XST_FAILURE;
     }
-    if ((GmaxCtrlShadow & (GMAX_CTRL_CCI_EN | GMAX_CTRL_XCE_SLAMODE |
-                           GMAX_CTRL_TEXP1 | GMAX_CTRL_TEXP2)) != GMAX_CTRL_CCI_EN) {
-        gmax_log("REFUSED: I2C 0x10 and both TEXP outputs LOW are required.\r\n");
+    if ((GmaxCtrlShadow & (GMAX_CTRL_CCI_EN | GMAX_CTRL_XCE_SLAMODE)) != GMAX_CTRL_CCI_EN) {
+        gmax_log("REFUSED: I2C 0x10 is required.\r\n");
         return XST_FAILURE;
     }
     SavedFreeze = GmaxCtrlShadow & GMAX_CTRL_RXDBG_FREEZE;
@@ -3791,6 +3786,8 @@ static int gmax_stream_enable(int confirm)
     return XST_SUCCESS;
 }
 
+static int gmax_fpga_pulse(unsigned mask, u32 duration);
+
 static int gmax_request_one_frame(void)
 {
     gmax_log("\r\nGMAX3412 ONE-FRAME TEXP1 REQUEST\r\n");
@@ -3806,15 +3803,7 @@ static int gmax_request_one_frame(void)
         return XST_FAILURE;
     }
 
-    (void)gmax_ctrl_update(0U, GMAX_CTRL_TEXP1 | GMAX_CTRL_TEXP2);
-    usleep(10U);
-    gmax_log("TEXP1 -> HIGH for %u us, then LOW.\r\n", (unsigned int)FrameExposureUs);
-    if (gmax_ctrl_update(GMAX_CTRL_TEXP1, 0U) != XST_SUCCESS)
-        return XST_FAILURE;
-    usleep(FrameExposureUs);
-    if (gmax_ctrl_update(0U, GMAX_CTRL_TEXP1) != XST_SUCCESS)
-        return XST_FAILURE;
-
+    if (gmax_fpga_pulse(1U<<SensorIndex, FrameExposureUs)!=XST_SUCCESS) return XST_FAILURE;
     gmax_log("RESULT: one TEXP1 request issued. Observe CLK_OUT0/1 and data lanes.\r\n");
     return XST_SUCCESS;
 }
@@ -3830,7 +3819,6 @@ static int gmax_internal_power_down(void)
     if (gmax_require_powered() != XST_SUCCESS)
         return XST_FAILURE;
 
-    (void)gmax_ctrl_update(0U, GMAX_CTRL_TEXP1 | GMAX_CTRL_TEXP2);
 
     /* Driving flow: stop capture first, then power down internal supplies. */
     if (gmax_i2c_rmw8(GMAX_I2C_REG_CLK_STREAM, 0U,
@@ -4375,16 +4363,11 @@ static void gmax_test_texp_outputs(void)
     }
 
     gmax_log("TEXP1: 100 us HIGH pulse (scope on GMX_%c_TEXP1)\r\n", SensorIndex ? 'B' : 'A');
-    (void)gmax_ctrl_update(GMAX_CTRL_TEXP1, 0U);
-    usleep(100U);
-    (void)gmax_ctrl_update(0U, GMAX_CTRL_TEXP1);
+    if (gmax_fpga_pulse(1U<<SensorIndex,100U)!=XST_SUCCESS) return;
     usleep(1000U);
 
     gmax_log("TEXP2: 100 us HIGH pulse (scope on GMX_%c_TEXP2)\r\n", SensorIndex ? 'B' : 'A');
-    (void)gmax_ctrl_update(GMAX_CTRL_TEXP2, 0U);
-    usleep(100U);
-    (void)gmax_ctrl_update(0U, GMAX_CTRL_TEXP2);
-
+    if (gmax_fpga_pulse(4U<<SensorIndex,100U)!=XST_SUCCESS) return;
     gmax_log("Pulse test complete.\r\n");
 }
 
@@ -4411,7 +4394,7 @@ static int gmax_select_image_source(int TestImage)
     }
     gmax_log("0x3500=0x%02X: %s selected.\r\n", selected,
                TestImage ? "sensor test ramp" : "normal imaging");
-    return TestImage ? gmax_request_one_frame() : XST_SUCCESS;
+    return XST_SUCCESS;
 }
 
 /* RX diagnostic selector 15 arms the physical ramp checker. Selectors
@@ -4494,7 +4477,7 @@ static void gmax_verify_ramp_frame(void)
         gmax_log("RX checker not ready: check bitstream, RX clock and idle training words.\r\n");
         goto restore;
     }
-    if (gmax_select_image_source(1) != XST_SUCCESS)
+    if (gmax_select_image_source(1) != XST_SUCCESS || gmax_request_one_frame() != XST_SUCCESS)
         goto restore;
     for (count = 0; count < 10000U; ++count) {
         state = gmax_check_state();
@@ -4639,7 +4622,7 @@ static void gmax_menu(void)
             break;
         case 'j':
         case 'J':
-            (void)gmax_select_image_source(1);
+            if (gmax_select_image_source(1)==XST_SUCCESS) (void)gmax_request_one_frame();
             break;
         case 'm':
         case 'M':
@@ -5647,8 +5630,11 @@ static void test_differential_clocks(void)
     xil_printf("time or jitter.\r\n");
 }
 
+static void fh_rtc_diagnostic(void);
+
 static void run_startup_diagnostics(void)
 {
+    fh_rtc_diagnostic();
     u8 EepromByte = 0U;
     const char *sensor_state[2];
 
@@ -6746,34 +6732,14 @@ cleanup:
 
 /* One stopped capture at a time. DMA A writes directly into its 2 GiB
  * PL DDR partition. Address 1 = 0 identifies a single physical sensor. */
-static int gmax_store_frame(int test_image)
+static int gmax_arm_frame(u64 address, u32 bytes)
 {
-    static u32 next_id=1U, slot=0U;
-    const u32 bytes=FH_FRAME_FULL_BYTES;
-    const u64 address=FH_FRAME_BASE+SensorIndex*FH_FRAME_SENSOR_BYTES+(u64)slot*bytes;
-    u32 dma=0, bridge=0;
-    int complete=0;
-    if (!GmaxStreamEnabled || GmaxPatternRecoveryRequired || DualOwnershipBlocked ||
-        !gmax_pl_ready() || gmax_training_result_from_status(gmax_status_read())!=0xFFFFU) {
-        gmax_log("Capture unavailable: initialize and train this sensor first.\r\n");
-        return XST_FAILURE;
-    }
-    DualControl=cap_read(DUAL_GPIO);
-    PlrControl=cap_read(PLR_GPIO);
-    BurstControl=cap_read(BURST_GPIO);
-    if (dual_diag(0)!=0x3412D035U || !dual_diag(12) ||
-        ((dual_diag(1)|plr_diag(1)|burst_diag(1))&1U) ||
-        cap_diag(0U,1U)!=0x3412CA01U) {
-        gmax_log("Capture unavailable: check DDR calibration and DMA ownership.\r\n");
-        return XST_FAILURE;
-    }
     for (u32 i=0;i<2;++i)
         Xil_SetTlbAttributes((UINTPTR)(FH_FRAME_BASE+SensorIndex*FH_FRAME_SENSOR_BYTES+i*0x40000000ULL),NORM_WB_CACHE);
-    fh_frame_set_capture_active(1);
     cap_write(CAP_GPIO,4U);
     usleep(1000U);
     cap_write(CAP_GPIO,0U);
-    if (cap_dma_reset()!=XST_SUCCESS) goto finish;
+    if (cap_dma_reset()!=XST_SUCCESS) return XST_FAILURE;
     fh_frame_invalidate_sensor(SensorIndex,address,bytes);
     Xil_DCacheFlushRange((INTPTR)address,bytes);
     cap_write(CAP_DMA+0x34U,0x7000U);
@@ -6783,43 +6749,105 @@ static int gmax_store_frame(int test_image)
     cap_write(CAP_DMA+0x58U,bytes);
     cap_write(CAP_GPIO,3U);
     u64 start=capture_us();
-    while (((bridge=cap_diag(3U,0U))&0x81U)!=0x81U)
-        if (capture_us()-start>100000U) goto finish;
-    if (gmax_select_image_source(test_image)!=XST_SUCCESS) goto finish;
-    if (!test_image && gmax_request_one_frame()!=XST_SUCCESS) goto finish;
-    start=capture_us();
+    while ((cap_diag(3U,0U)&0x81U)!=0x81U)
+        if (capture_us()-start>100000U) return XST_FAILURE;
+    return XST_SUCCESS;
+}
+
+static int gmax_frame_complete(u32 bytes, u32 timeout_us)
+{
+    u32 bridge, dma;
+    u64 start=capture_us();
     do {
         bridge=cap_diag(3U,0U);
         dma=cap_read(CAP_DMA+0x34U);
         if ((bridge&0x38U) || (dma&0x770U)) break;
         if ((bridge&0xC4U)==0xC4U && (dma&0x1002U)==0x1002U) {
-            complete=cap_diag(3U,2U)==bytes && cap_read(CAP_DMA+0x58U)==bytes;
-            break;
+            return cap_diag(3U,2U)==bytes && cap_read(CAP_DMA+0x58U)==bytes;
         }
-    } while (capture_us()-start<500000U);
+    } while (capture_us()-start<timeout_us);
+    gmax_log("Frame discarded: DMA=0x%08X capture=0x%08X.\r\n", dma, bridge);
+    return 0;
+}
+
+static int gmax_store_frames(int test_image, int stereo)
+{
+    static u32 next_id=1U, slot=0U;
+    const unsigned selected=SensorIndex;
+    const unsigned first=stereo ? 0 : selected;
+    const unsigned last=stereo ? 1 : selected;
+    const u32 bytes=FH_FRAME_FULL_BYTES;
+    u64 addresses[2]={0,0};
+    unsigned armed=0;
+    u64 previous[2]={0}, trigger=0, end=0;
+    int complete=0;
+    if (DualOwnershipBlocked || !gmax_pl_ready()) return XST_FAILURE;
+    DualControl=cap_read(DUAL_GPIO);
+    PlrControl=cap_read(PLR_GPIO);
+    BurstControl=cap_read(BURST_GPIO);
+    if (dual_diag(0)!=0x3412D035U || !dual_diag(12) ||
+        ((dual_diag(1)|plr_diag(1)|burst_diag(1))&1U)) return XST_FAILURE;
+    time_prepare();
+    fh_frame_set_capture_active(1);
+    for (SensorIndex=first; SensorIndex<=last; ++SensorIndex) {
+        if (!GmaxStreamEnabled || GmaxPatternRecoveryRequired ||
+            gmax_training_result_from_status(gmax_status_read())!=0xFFFFU ||
+            cap_diag(0U,1U)!=0x3412CA01U) {
+            gmax_log("Capture unavailable: check receiver and lane training.\r\n");
+            goto finish;
+        }
+        previous[SensorIndex]=time_read64(0x16+4*SensorIndex);
+        addresses[SensorIndex]=FH_FRAME_BASE+SensorIndex*FH_FRAME_SENSOR_BYTES+(u64)slot*bytes;
+        armed |= 1U<<SensorIndex;
+        if (gmax_arm_frame(addresses[SensorIndex],bytes)!=XST_SUCCESS ||
+            gmax_select_image_source(test_image)!=XST_SUCCESS) goto finish;
+    }
+    time_service();
+    if (gmax_fpga_pulse(armed,FrameExposureUs)!=XST_SUCCESS) goto finish;
+    for (SensorIndex=first; SensorIndex<=last; ++SensorIndex)
+        if (!gmax_frame_complete(bytes,500000U)) goto finish;
+    time_service();
+    for (SensorIndex=first; SensorIndex<=last; ++SensorIndex) {
+        unsigned reg=0x16+4*SensorIndex;
+        u64 rise=time_read64(reg), fall=time_read64(reg+2);
+        if (rise<=previous[SensorIndex] || fall<=rise ||
+            (SensorIndex!=first && (rise!=trigger || fall!=end))) {
+            gmax_log("Missing or inconsistent TEXP timestamps.\r\n");
+            goto finish;
+        }
+        trigger=rise; end=fall;
+    }
+    complete=1;
 finish:
-    cap_write(CAP_GPIO,0U);
-    if (cap_dma_reset()!=XST_SUCCESS) {
-        DualOwnershipBlocked=1;
-        complete=0;
-        gmax_log("DMA reset failed. Reset/relaunch required.\r\n");
+    for (SensorIndex=first; SensorIndex<=last; ++SensorIndex) {
+        if (!(armed & (1U<<SensorIndex))) continue;
+        cap_write(CAP_GPIO,0U);
+        if (cap_dma_reset()!=XST_SUCCESS) {
+            DualOwnershipBlocked=1;
+            complete=0;
+        }
     }
+    SensorIndex=selected;
     fh_frame_set_capture_active(0);
-    if (!complete || !fh_frame_publish(next_id,0U,FH_FRAME_FULL,SensorIndex?0:address,SensorIndex?address:0,bytes,0U)) {
-        gmax_log("Frame discarded: DMA=0x%08X capture=0x%08X.\r\n",dma,bridge);
+    if (!complete || !fh_frame_publish(next_id,0U,FH_FRAME_FULL,addresses[0],addresses[1],bytes,0U,trigger,end,time_utc_us(trigger),time_last_set))
         return XST_FAILURE;
-    }
     fh_frame_set_ddr_ready(1);
-    gmax_log("Stored sensor %u FrameID %u, slot %u, %u bytes. B then N to export.\r\n",SensorIndex+1,next_id,slot,bytes);
+    if (stereo)
+        xil_printf("[GMAX3412-A + GMAX3412-B] Stored synchronized pair FrameID %u, exposure %u us.\r\n",next_id,FrameExposureUs);
+    else
+        gmax_log("Stored sensor %u FrameID %u, slot %u, %u bytes. B then N to export.\r\n",SensorIndex+1,next_id,slot,bytes);
     ++next_id;
     slot=(slot+1U)%(FH_FRAME_SENSOR_BYTES/FH_FRAME_FULL_BYTES);
     return XST_SUCCESS;
 }
 
-
-static int gmax_capture_for_export(void)
+static int gmax_store_frame(int test_image)
 {
-    FhFrameRecord first;
+    return gmax_store_frames(test_image,0);
+}
+
+static int gmax_prepare_capture(void)
+{
     if (!gmax_pl_ready() || DualOwnershipBlocked)
         return XST_FAILURE;
     if (GmaxPatternRecoveryRequired ||
@@ -6837,11 +6865,24 @@ static int gmax_capture_for_export(void)
             return XST_FAILURE;
     }
 
-    /* The physical and stereo capture paths share the DDR ring. */
-    if (fh_frame_item_at(0, &first) && first.address[0] && first.address[1])
-        fh_frame_reset();
-    DualLastCaptureVerified = 0;
-    return gmax_store_frame(0);
+    return XST_SUCCESS;
+}
+
+static int gmax_capture_for_export(int stereo)
+{
+    unsigned selected=SensorIndex;
+    for (unsigned i=0; i<(stereo ? 2U : 1U); ++i) {
+        SensorIndex=stereo ? i : selected;
+        if (gmax_prepare_capture()!=XST_SUCCESS) {
+            gmax_log("Sensor preparation failed.\r\n");
+            SensorIndex=selected;
+            return XST_FAILURE;
+        }
+    }
+    SensorIndex=selected;
+    if (DualLastCaptureVerified) fh_frame_reset();
+    DualLastCaptureVerified=0;
+    return gmax_store_frames(0,stereo);
 }
 
 static void fh_ethernet_menu(void)
@@ -6881,13 +6922,14 @@ static void fh_ethernet_menu(void)
 }
 
 /* Commands are terminated by CR or LF to allow slow interactive typing. */
-static int read_capture_args(void)
+static int read_capture_args(int *stereo)
 {
     char key=inbyte();
     unsigned sensor=0, exposure=1000;
     int valid=1;
     if (key!='\r' && key!='\n') {
-        valid=key=='1' || key=='2';
+        *stereo=(key=='S' || key=='s');
+        valid=key=='1' || key=='2' || *stereo;
         sensor=key=='2';
         key=inbyte();
         if (key==':') {
@@ -6902,7 +6944,7 @@ static int read_capture_args(void)
         }
         while (key!='\r' && key!='\n') {valid=0;key=inbyte();}
     }
-    if (!valid) {xil_printf("Use C1 or C2[:exposure_us] then Enter (1..1048575 us).\r\n");return 0;}
+    if (!valid) {xil_printf("Use C1, C2 or CS (stereo)[:exposure_us] then Enter (1..1048575 us).\r\n");return 0;}
     SensorIndex=sensor;FrameExposureUs=exposure;
     return 1;
 }
@@ -6922,12 +6964,14 @@ int main(void)
     if (!gmax_pl_ready()) {xil_printf("PL unavailable. Load the FH_Test V35 bitstream.\r\n");return 1;}
     DualControl=cap_read(DUAL_GPIO);
     if (dual_diag(0)!=0x3412D035U) {xil_printf("Load the matching FH_Test V35 bitstream.\r\n");return 1;}
+    if (!time_init()) return 1;
     run_startup_diagnostics();
     fh_frame_reset();
 
     show_menu();
 
     while (1) {
+        while (!XUartPs_IsReceiveData(STDIN_BASEADDRESS)) {time_service(); usleep(1000);}
         Command = inbyte();
 
         if ((unsigned char)Command != 0x1BU) {
@@ -6937,6 +6981,9 @@ int main(void)
 
         if(DualOwnershipBlocked) {xil_printf("Reset/relaunch required: DMA ownership unresolved.\r\n");continue;}
         switch (Command) {
+        case 'T': case 't':
+            fh_rtc_set_command();
+            break;
         case 'l':
         case 'L':
             for (u32 i=0;i<fh_frame_count();++i) {
@@ -6946,13 +6993,17 @@ int main(void)
             }
             break;
         case 'c':
-        case 'C':
-            if (!read_capture_args()) break;
-            if (gmax_capture_for_export() == XST_SUCCESS)
+        case 'C': {
+            int stereo=0;
+            if (!read_capture_args(&stereo)) break;
+            if (gmax_capture_for_export(stereo) == XST_SUCCESS)
                 fh_ethernet_menu();
+            else if (stereo)
+                xil_printf("[GMAX3412-A + GMAX3412-B] Stereo capture failed; returning to main menu.\r\n");
             else
                 gmax_log("Sensor capture failed; returning to main menu.\r\n");
             break;
+        }
         case 'u':
         case 'U':
             fh_frame_reset();
