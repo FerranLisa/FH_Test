@@ -49,3 +49,4 @@ __pycache__/
 /hardware/bd/*.bda
 /hardware/scripts/debug/
 /software/java_tmp/
+/software/workspace_amp/

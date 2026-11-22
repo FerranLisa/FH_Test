@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'images'))
 sys.path.insert(0, str(ROOT / 'software' / 'host'))
+from fh_jpeg_viewer import Eye, StereoMonitor
 from view_stereo import QtCore, QtGui, QtWidgets, ImagePanel, enum, find_pairs, read_image, np
 if QtCore.__name__.startswith('PyQt6'):
     from PyQt6 import QtSerialPort
@@ -168,13 +169,26 @@ class FHTest(QtWidgets.QMainWindow):
                            enum(QtCore.Qt, 'AlignmentFlag', 'AlignVCenter'))
         return label
 
+    def toggle_monitor(self, enabled):
+        if enabled:
+            self.monitor = StereoMonitor(self.host.text().strip(), self.live_eyes, self.live_status, self)
+            self.live_status.setText('Waiting for stereo pair')
+        elif self.monitor is not None:
+            self.monitor.close()
+            self.monitor = None
+        for stack, eye in zip(self.sensor_stacks, self.live_eyes):
+            eye.clear()
+            stack.setCurrentIndex(int(enabled))
+        self.live_status.setVisible(enabled)
+        self.info.setVisible(not enabled)
+        self.full_field.setVisible(enabled)
+        self.gray.setVisible(not enabled)
+        self.update_controls()
+
     def set_board_rtc(self):
         self.send(f'T:{int(time.time())}\r'.encode('ascii'))
 
     def build_ui(self):
-        board_menu = self.menuBar().addMenu('Board')
-        self.set_rtc_action = board_menu.addAction('Set ZU7EV RTC from PC clock')
-        self.set_rtc_action.triggered.connect(self.set_board_rtc)
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
         layout = QtWidgets.QVBoxLayout(central)
@@ -221,12 +235,12 @@ class FHTest(QtWidgets.QMainWindow):
             capture.addWidget(self.field_label(title))
             capture.addWidget(widget)
         self.start = self.button(capture, 'Start capture', self.start_capture)
+        self.stop = self.button(capture, 'Stop capture', self.stop_capture)
         self.sensor_select = QtWidgets.QComboBox()
         self.sensor_select.addItems(['Sensor 1', 'Sensor 2', 'Stereo'])
         capture.addWidget(self.sensor_select)
         self.sensor_capture = self.button(capture, 'Capture sensor', self.capture_sensor)
         self.sensor_capture.setToolTip('Capture one image or a synchronized stereo pair at the specified exposure and refresh Ethernet export.')
-        self.stop = self.button(capture, 'Stop capture', self.stop_capture)
         self.export = self.button(capture, 'Enter export', self.enter_export)
         self.leave = self.button(capture, 'Return to menu', self.leave_export)
         self.escape = self.button(capture, 'Send ESC', self.send_escape)
@@ -292,6 +306,13 @@ class FHTest(QtWidgets.QMainWindow):
         right.addLayout(navigation)
         self.previous = self.button(navigation, 'Previous', lambda: self.navigate(-1))
         self.next = self.button(navigation, 'Next', lambda: self.navigate(1))
+        self.monitor = None
+        self.monitor_button = QtWidgets.QPushButton('Live Stereo Monitor')
+        self.monitor_button.setCheckable(True)
+        self.monitor_button.toggled.connect(self.toggle_monitor)
+        navigation.addWidget(self.monitor_button)
+        self.full_field = self.button(navigation, 'Full field', lambda: self.monitor.overview())
+        self.full_field.hide()
         navigation.addStretch()
         self.gray = QtWidgets.QComboBox()
         self.gray.addItems(['8 MSBs — bits 9–2', '8 LSBs — bits 7–0'])
@@ -300,6 +321,11 @@ class FHTest(QtWidgets.QMainWindow):
         self.info = QtWidgets.QLabel('Connect UART and use Help / sync at the board menu, or attach to an existing export server.')
         self.info.setWordWrap(True)
         right.addWidget(self.info)
+        self.live_status = QtWidgets.QLabel()
+        right.addWidget(self.live_status)
+        self.live_status.hide()
+        self.sensor_stacks = []
+        self.live_eyes = []
         panels = QtWidgets.QHBoxLayout()
         right.addLayout(panels, 1)
         self.panels = []
@@ -307,7 +333,17 @@ class FHTest(QtWidgets.QMainWindow):
             column = QtWidgets.QVBoxLayout()
             column.addWidget(QtWidgets.QLabel(f'Sensor {sensor + 1}'))
             panel = ImagePanel()
-            column.addWidget(panel, 1)
+            stack = QtWidgets.QStackedWidget()
+            stack.addWidget(panel)
+            eye = Eye()
+            eye.setAlignment(enum(QtCore.Qt, 'AlignmentFlag', 'AlignCenter'))
+            eye.setSizePolicy(enum(QtWidgets.QSizePolicy, 'Policy', 'Ignored'),
+                              enum(QtWidgets.QSizePolicy, 'Policy', 'Ignored'))
+            eye.anchor.connect(lambda inward, u, v, i=sensor: self.monitor.zoom(i, inward, u, v))
+            stack.addWidget(eye)
+            self.live_eyes.append(eye)
+            self.sensor_stacks.append(stack)
+            column.addWidget(stack, 1)
             panels.addLayout(column, 1)
             self.panels.append(panel)
         split.addWidget(view)
@@ -316,6 +352,7 @@ class FHTest(QtWidgets.QMainWindow):
         console_controls = QtWidgets.QHBoxLayout()
         layout.addLayout(console_controls)
         self.help_button = self.button(console_controls, 'Help / sync (H)', self.help_sync)
+        self.rtc_button = self.button(console_controls, 'Set ZU7EV RTC from PC clock', self.set_board_rtc)
         self.lut = self.button(console_controls, 'Print UART LUT (L)', lambda: self.send(b'L'))
         self.diag = self.button(console_controls, 'Ethernet diagnostics (D)', lambda: self.send(b'D'))
         self.button(console_controls, 'Save UART log…', self.save_log)
@@ -823,7 +860,12 @@ class FHTest(QtWidgets.QMainWindow):
         for widget in (self.com, self.baud, self.scan):
             widget.setEnabled(not connected)
         self.start.setEnabled(connected and idle and state in ('menu', 'export'))
-        self.set_rtc_action.setEnabled(connected and idle and state == 'menu')
+        self.rtc_button.setEnabled(connected and idle and state == 'menu')
+        ready = (connected and idle and state == 'capturing' and
+                 self.sequence.monitor_ready and bool(self.host.text().strip()))
+        if not ready and self.monitor_button.isChecked():
+            self.monitor_button.setChecked(False)
+        self.monitor_button.setEnabled(ready)
         self.sensor_capture.setEnabled(self.start.isEnabled())
         self.stop.setEnabled(connected and state == 'capturing')
         self.export.setEnabled(connected and idle and state == 'menu')
@@ -842,8 +884,8 @@ class FHTest(QtWidgets.QMainWindow):
         selected = 0 <= index < len(self.rows)
         local = selected and (self.rows[index]['frame_id'], self.rows[index]['type']) in self.local_files
         self.download.setEnabled(idle and selected and (local or state == 'export'))
-        self.previous.setEnabled(idle and index > 0)
-        self.next.setEnabled(idle and selected and index < len(self.rows) - 1)
+        self.previous.setEnabled(self.monitor is None and idle and index > 0)
+        self.next.setEnabled(self.monitor is None and idle and selected and index < len(self.rows) - 1)
         for widget in (self.r, self.exposure, self.seconds):
             widget.setEnabled(idle and state in ('unknown', 'menu', 'export'))
         self.statusBar().showMessage(f"Board: {state.replace('_', ' ')} | UART: {'connected' if connected else 'disconnected'} | "
@@ -856,6 +898,8 @@ class FHTest(QtWidgets.QMainWindow):
             self.notice('Waiting for background operation to stop…')
             event.ignore()
             return
+        if self.monitor is not None:
+            self.monitor.close()
         self.serial.close()
         event.accept()
 

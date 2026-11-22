@@ -16,6 +16,8 @@ with zipfile.ZipFile(stem.with_suffix('.xsa')) as z:
         assert name in modules,name
     for name in ['gmax_scheduler','gmax_pl_ring','axi_gpio_gmax_a_ctrl','axi_iic_gmax_a','fh_pcie_refclk_monit_0','fh_router_0','fh_export_dma']:
         assert name in modules,name
+    for name in ('monitor_a','monitor_b','monitor_a_dma','monitor_b_dma'):
+        assert name in modules, f'Monitor component missing from hardware handoff: {name}'
     for name in ['gmax_capture_dma','gmax_capture_dma_b']:
         parameters={p.get('NAME').lower():p.get('VALUE') for p in modules[name].findall('.//PARAMETER')}
         assert int(parameters['c_addr_width'],0)==64,name

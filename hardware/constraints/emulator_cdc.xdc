@@ -13,3 +13,10 @@ set_false_path -from [get_cells {u_gmax_a_rx/u_training/loopi[0].u_iserdes/raw_a
 set_false_path -from [get_cells {u_gmax_a_rx/u_training/loopi[1].u_iserdes/raw_activity_reg}] -to [get_pins {u_gmax_a_rx/u_training/dbg_raw1_sync_reg[0]/D}]
 set_false_path -from [get_cells {u_gmax_b_rx/u_training/loopi[0].u_iserdes/raw_activity_reg}] -to [get_pins {u_gmax_b_rx/u_training/dbg_raw0_sync_reg[0]/D}]
 set_false_path -from [get_cells {u_gmax_b_rx/u_training/loopi[1].u_iserdes/raw_activity_reg}] -to [get_pins {u_gmax_b_rx/u_training/dbg_raw1_sync_reg[0]/D}]
+
+# Clock-activity toggles change once per 256 divided-clock cycles. Bound
+# routing into the two-flop level synchronizer to one 150 MHz source period.
+set_max_delay -datapath_only 6.668 -from [get_cells {u_gmax_a_rx/u_training/dbg_clk0_toggle_reg}] -to [get_pins {u_gmax_a_rx/u_training/dbg_clk0_sync_reg[0]/D}]
+set_max_delay -datapath_only 6.668 -from [get_cells {u_gmax_a_rx/u_training/dbg_clk1_toggle_reg}] -to [get_pins {u_gmax_a_rx/u_training/dbg_clk1_sync_reg[0]/D}]
+set_max_delay -datapath_only 6.668 -from [get_cells {u_gmax_b_rx/u_training/dbg_clk0_toggle_reg}] -to [get_pins {u_gmax_b_rx/u_training/dbg_clk0_sync_reg[0]/D}]
+set_max_delay -datapath_only 6.668 -from [get_cells {u_gmax_b_rx/u_training/dbg_clk1_toggle_reg}] -to [get_pins {u_gmax_b_rx/u_training/dbg_clk1_sync_reg[0]/D}]

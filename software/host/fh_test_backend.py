@@ -15,9 +15,11 @@ class CaptureSequence:
         self.state = 'unknown'
         self.buffer = ''
         self.values = ()
+        self.monitor_ready = False
 
     def reset(self, state='unknown'):
         self.state, self.buffer = state, ''
+        self.monitor_ready = False
 
     def start(self, r, exposure, seconds):
         if self.state != 'menu':
@@ -63,9 +65,14 @@ class CaptureSequence:
                 self.state = 'menu'
             elif line.startswith('R=') and 'one stereo trigger' in line:
                 self.state = 'capturing'
+                self.monitor_ready = False
+            elif line == 'JPEG monitor listening on TCP 5002.':
+                self.monitor_ready = self.state == 'capturing'
+            elif line.startswith('JPEG monitor unavailable'):
+                self.monitor_ready = False
             elif line.startswith('Pairs:'):
                 self.state = 'verifying'
-            elif line.startswith(('V31 Ethernet: imported ', 'V32 Ethernet: imported ', 'V33 Ethernet: imported ', 'V33.1 Ethernet: imported ', 'V34 Ethernet: imported ', 'V35 Ethernet: imported ')):
+            elif line.startswith(('V31 Ethernet: imported ', 'V32 Ethernet: imported ', 'V33 Ethernet: imported ', 'V33.1 Ethernet: imported ', 'V34 Ethernet: imported ', 'V35 Ethernet: imported ', 'V35.1 Ethernet: imported ')):
                 self.state = 'menu'
                 events.append(('verified', line))
             elif ('Export unavailable until U passes.' in line or

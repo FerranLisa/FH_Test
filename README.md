@@ -1,8 +1,50 @@
-# FH_Test — V35 development
+# FH_Test — V35.1
 
 Two physical GMAX3412 receivers on FH_Carrier. Startup reports independent initialization and 16-lane training results. UART 8 and 9 open sensor diagnostics. Enter C1 or C2 with an optional exposure in microseconds, followed by Enter (for example C2:2000). The default is 1000 us. U:3000 sets a 3000 us exposure on both sensors for this run and asks for R and duration. Plain U also prompts for exposure (default 1000 us). U arms both receivers and strobes both TEXP1 lines together. R selects how many central 4096 × 1024 crops to retain between full frames. Both sensors read full frames. Busy 4 ms timer slots are skipped. N exports retained images; Ethernet sensor indices are 0 and 1.
 
-## Build V35
+## Changes in V35.1
+
+- Two router implementations support independent crop and subsampling paths. Each live monitor reads its GMAX3412 receiver directly. Routed export reads a retained frame from PL DDR4 through AXI DMA.
+- The bare-metal A53 serves synchronized 1024 × 768 grayscale JPEG pairs on TCP 5002 during acquisition. Stored-frame export uses TCP 5001.
+- FH_Test displays live video in the Sensor 1 and Sensor 2 panels. The monitor toggle sits beside Previous and Next, and Stop capture sits beside Start capture. The RTC and monitor buttons follow board readiness.
+- Vivado functional simulation passed eight DMA-router cases and six live-router cases, including full-frame subsampling and error handling.
+
+## Programmable logic dataflow
+
+Each receiver feeds both image paths. Solid arrows carry pixels. Dashed arrows carry capture control and frame identification.
+
+```mermaid
+flowchart TD
+    sensors["GMAX3412 A and B"] --> rx["Two sub-LVDS receivers"]
+    rx --> cap["RAW capture per eye"]
+    rx --> live["fh_monitor_input per eye<br/>fh_monitor_eye and fh_router_live"]
+    control["gmax3412_dual_ring<br/>Stereo trigger, FrameID and LUT"] -.-> cap
+    control -.->|"FULL trigger and FrameID"| live
+    cap -->|"Capture DMA"| ring["PL DDR4 rolling buffer<br/>FULL and ROI pairs"]
+    ring -->|"Export DMA read"| router["fh_router_dma inside fh_router<br/>Crop and subsample"]
+    router -->|"Export DMA write"| staging["PS DDR routed export buffer"]
+    live -->|"Pack 8-bit pixels, FIFO and monitor DMA"| pair["PS DDR live buffers<br/>1024 × 768 per eye"]
+    pair --> jpeg["A53 software JPEG encoder<br/>TCP 5002"]
+```
+
+## Standalone stereo JPEG monitor
+
+During UART U acquisition, click **Live Stereo Monitor** beside **Next** once the board reports that TCP 5002 is listening. Sensor 1 and Sensor 2 then show the live pair. Click the button again to return to the stored images. Choose R=0 for focusing, or R=24 to retain 24 ROI pairs between FULL pairs,
+and duration 0 for continuous capture. The default board IP is 192.168.1.123;
+the viewer connects to TCP 5002. Each reply carries a common FULL FrameID and
+two independent 1024 × 768 grayscale JPEGs. A53 standalone encodes the two
+live router outputs. RAW rolling-buffer acquisition continues without a viewer.
+
+The wheel centres the new ROI on the cursor, clamped at sensor boundaries.
+The other eye retains its centre. At 1×, 2× and 4× the hardware pixel steps
+are 4, 2 and 1. Beyond 4×, only the client crops and scales its received JPEG.
+Full field resets both eyes. Maximum target is 10 pairs/s, subject to A53
+and LAN throughput. For the default standalone build clear any old AMP setting
+with `Remove-Item Env:FH_MONITOR_AMP -ErrorAction SilentlyContinue` in the
+same PowerShell session. The deferred [VCU profile](software/monitor/README.md)
+is separate.
+
+## Build V35.1
 
 Close Vivado and Vitis, then run the following command from the FH_Test project root.
 

@@ -15,7 +15,7 @@ module tb_fh_router;
     integer seen=0, cycle=0, nx,ny,bx,ex,ey,st,total,seed,case_id=0;
     reg checking=0, held=0;
     reg [16:0] previous;
-    fh_router dut(.clk(clk),.resetn(resetn),
+    fh_router_dma dut(.clk(clk),.resetn(resetn),
         .s_axi_awprot(3'b0),.s_axi_arprot(3'b0),
         .s_axi_awaddr(awaddr),.s_axi_awvalid(awvalid),.s_axi_awready(awready),
         .s_axi_wdata(wdata),.s_axi_wstrb(4'hf),.s_axi_wvalid(wvalid),.s_axi_wready(wready),

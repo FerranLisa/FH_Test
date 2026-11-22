@@ -33,5 +33,6 @@ set driver_net [get_bd_nets -quiet -of_objects $pulse_driver]
 if {$driver_net eq "" || $driver_net ne [get_bd_nets -quiet -of_objects $pulse_port]} {
     error "TEXP output port must be driven by gmax_dual_ring/texp_drive"
 }
+source [file join [file dirname [info script]] connect_monitor.tcl]
 save_bd_design
 make_wrapper -files [get_files */design_1.bd] -top -force

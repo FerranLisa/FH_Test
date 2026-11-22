@@ -6728,6 +6728,27 @@ cleanup:
 /* V31.1: authoritative V30 Frame_Addr_LUT snapshot after verified stop. */
 #include "fh_frame_export.h"
 #include "fh_eth_server.h"
+#include "fh_jpeg_monitor.h"
+static void fh_board_mac(u8 mac[6])
+{
+    /* Bench fallback for KFB, which lacks the carrier EUI-48 EEPROM.
+     * Locally administered unicast; use only one fallback board per LAN. */
+    static const u8 bench_mac[6]={0x02U,0x46U,0x48U,0x00U,0x00U,0x01U};
+    memset(mac,0,6);
+    u8 any=0U;
+    int have_eui=IicReady && eeprom_read(0xFAU,mac,6U)==XST_SUCCESS;
+    for (u32 i=0U;i<6U;++i) any|=mac[i];
+    if (!have_eui || !any || (mac[0]&1U)) {
+        xil_printf("Ethernet: EEPROM EUI-48 %s; using BENCH fallback.\r\n",
+                   have_eui ? "invalid" : "unavailable");
+        have_eui=0;
+        for (u32 i=0U;i<6U;++i) mac[i]=bench_mac[i];
+        xil_printf("  Use only one fallback board on this LAN (static IP 192.168.1.123).\r\n");
+    }
+    xil_printf("Ethernet MAC (%s): %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+               have_eui ? "EEPROM EUI-48" : "BENCH fallback",
+               mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+}
 #include "dual_stream.h"
 
 /* One stopped capture at a time. DMA A writes directly into its 2 GiB
@@ -6887,23 +6908,12 @@ static int gmax_capture_for_export(int stereo)
 
 static void fh_ethernet_menu(void)
 {
-    /* Bench fallback for KFB, which lacks the carrier EUI-48 EEPROM.
-     * Locally administered unicast; use only one fallback board per LAN. */
-    static const u8 bench_mac[6]={0x02U,0x46U,0x48U,0x00U,0x00U,0x01U};
-    u8 mac[6]={0};
-    u8 any=0U;
-    int have_eui=IicReady && eeprom_read(0xFAU,mac,6U)==XST_SUCCESS;
-    for (u32 i=0U;i<6U;++i) any|=mac[i];
-    if (!have_eui || !any || (mac[0]&1U)) {
-        xil_printf("Ethernet: EEPROM EUI-48 %s; using BENCH fallback.\r\n",
-                   have_eui ? "invalid" : "unavailable");
-        have_eui=0;
-        for (u32 i=0U;i<6U;++i) mac[i]=bench_mac[i];
-        xil_printf("  Use only one fallback board on this LAN (static IP 192.168.1.123).\r\n");
-    }
-    xil_printf("Ethernet MAC (%s): %02X:%02X:%02X:%02X:%02X:%02X\r\n",
-               have_eui ? "EEPROM EUI-48" : "BENCH fallback",
-               mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+#ifdef FH_MONITOR_AMP
+    xil_printf("GEM0 belongs to Linux in monitor mode. Use RTSP for live video.\r\n");
+    return;
+#endif
+    u8 mac[6];
+    fh_board_mac(mac);
     if (!gmax_pl_ready()) {
         xil_printf("  Ethernet server: PL not configured (normally run U first).\r\n");
     }
@@ -6957,13 +6967,17 @@ int main(void)
     xil_printf("\r\n\r\n");
     xil_printf("========================================\r\n");
     xil_printf(" FH_Emulator / FH_Carrier / " FH_RELEASE_LABEL "\r\n");
+#ifdef FH_MONITOR_AMP
+    xil_printf(" PZ-ZU7EV / Cortex-A53_3 / stereo monitor AMP\r\n");
+#else
     xil_printf(" PZ-ZU7EV / Cortex-A53_0\r\n");
+#endif
     xil_printf(" PAC1944 + REFCLK + 2 physical GMAX3412 + stereo DDR capture + Router Ethernet\r\n");
     xil_printf("========================================\r\n");
 
-    if (!gmax_pl_ready()) {xil_printf("PL unavailable. Load the FH_Test V35 bitstream.\r\n");return 1;}
+    if (!gmax_pl_ready()) {xil_printf("PL unavailable. Load the FH_Test " FH_RELEASE " bitstream.\r\n");return 1;}
     DualControl=cap_read(DUAL_GPIO);
-    if (dual_diag(0)!=0x3412D035U) {xil_printf("Load the matching FH_Test V35 bitstream.\r\n");return 1;}
+    if (dual_diag(0)!=0x3412D035U) {xil_printf("Load the matching FH_Test " FH_RELEASE " bitstream.\r\n");return 1;}
     if (!time_init()) return 1;
     run_startup_diagnostics();
     fh_frame_reset();
@@ -7017,7 +7031,11 @@ int main(void)
             break;
         case 'e':
         case 'E':
+#ifdef FH_MONITOR_AMP
+            xil_printf("Linux owns the Ethernet PHY in monitor mode.\r\n");
+#else
             fh_eth_phy_observe();
+#endif
             break;
         case 'n':
         case 'N':

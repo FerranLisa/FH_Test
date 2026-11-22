@@ -935,12 +935,10 @@ static void ethernet_rx_resume(void)
     __asm__ volatile("msr daif, %0" :: "r"(saved) : "memory");
 }
 
-int fh_eth_serve(const u8 mac[6])
+static int ethernet_init(const u8 mac[6])
 {
     ip_addr_t ip,mask,gw;
-    struct tcp_pcb *p;
-    int reported_link = -1;
-    if (!mac || fh_frame_capture_active()) return -1;
+    if (!mac) return -1;
     if (!StackInitialized) {
         memcpy(NetMac,mac,6U);
         IP4_ADDR(&ip,192,168,1,123);
@@ -960,6 +958,38 @@ int fh_eth_serve(const u8 mac[6])
         Xil_ExceptionEnable();
         StackInitialized=1;
     }
+    return 0;
+}
+#include "fh_jpeg_monitor.h"
+static int MonitorActive;
+int fh_monitor_net_start(const u8 mac[6])
+{
+    if (ethernet_init(mac)) return -1;
+    Stopping=1; /* Keep the historical download listener closed to new clients. */
+    if (fh_jpeg_listen()) { ethernet_rx_pause(); return -1; }
+    LastFastUs=LastSlowUs=LastArpUs=LastLinkUs=monotonic_us();
+    ethernet_rx_resume();
+    MonitorActive=1;
+    return 0;
+}
+void fh_monitor_net_poll(void)
+{
+    if (!MonitorActive) return;
+    RxDelivered += (u32)xemacif_input(&Netif);
+    service_timers();
+    fh_jpeg_poll(monotonic_us());
+}
+void fh_monitor_net_stop(void)
+{
+    if (MonitorActive) {
+        fh_jpeg_stop(); ethernet_rx_pause(); MonitorActive=0;
+    }
+}
+int fh_eth_serve(const u8 mac[6])
+{
+    struct tcp_pcb *p;
+    int reported_link=-1;
+    if (fh_frame_capture_active() || ethernet_init(mac)) return -1;
     Stopping=0;
     LastFastUs=LastSlowUs=LastArpUs=LastLinkUs=monotonic_us();
     memset(&Conn,0,sizeof Conn);

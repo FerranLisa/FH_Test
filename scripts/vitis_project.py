@@ -13,7 +13,8 @@ import build_pb2
 import workspace_pb2
 
 ROOT=Path(__file__).resolve().parents[1]
-WORKSPACE=ROOT/'software/workspace'
+AMP=os.environ.get('FH_MONITOR_AMP') == '1'
+WORKSPACE=ROOT/('software/workspace_amp' if AMP else 'software/workspace')
 PLATFORM='FH_Emulator_platform'
 APP='FH_Emulator_App'
 DOMAIN='standalone'  # Keep generated Windows object paths below 250 characters.
@@ -98,7 +99,7 @@ def main():
                 platform=client.get_component(name=PLATFORM)
             else:
                 platform=client.create_platform_component(name=PLATFORM,hw_design=str(XSA),
-                    cpu='psu_cortexa53_0',os='standalone',domain_name=DOMAIN,
+                    cpu='psu_cortexa53_3' if AMP else 'psu_cortexa53_0',os='standalone',domain_name=DOMAIN,
                     architecture='64-bit',no_boot_bsp=False)
             domain=platform.get_domain(name=DOMAIN)
             configure_domain(domain)
@@ -142,7 +143,19 @@ def main():
             app=client.create_app_component(name=APP,platform=str(xpfm),domain=DOMAIN,template='empty_application')
             # One initial import. The native component's src becomes authoritative.
             app.import_files(from_loc=str(ROOT/'software/app/src'),dest_dir_in_cmp='src')
-            print('Application created. Edit software/workspace/FH_Emulator_App/src from now on.')
+            if AMP:
+                src=WORKSPACE/APP/"src"
+                linker=src/"lscript.ld"
+                layout=linker.read_text().replace("ORIGIN = 0x0, LENGTH = 0x10000000",
+                    "ORIGIN = 0x40000000, LENGTH = 0x10000000").replace(
+                    "ASSERT(_end <= 0x10000000", "ASSERT(_end <= 0x50000000")
+                if "ORIGIN = 0x40000000" not in layout:
+                    raise RuntimeError("AMP linker region missing")
+                linker.write_text(layout)
+                cmake=src/"CMakeLists.txt"
+                cmake.write_text(cmake.read_text().replace("enable_language(C ASM CXX)",
+                    "enable_language(C ASM CXX)\nadd_compile_definitions(FH_MONITOR_AMP=1)"))
+            print(f'Application created. Native application sources: {WORKSPACE/APP/"src"}')
         elif stage=='BuildApp':
             if client.get_component(name=APP).build()!=build_pb2.BuildResponse.SUCCESS:
                 raise RuntimeError('Application build failed')

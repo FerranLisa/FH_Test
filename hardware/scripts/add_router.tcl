@@ -1,7 +1,9 @@
 # Source in the Vivado GUI with design_1 open. No build or output generation.
 set router_hw [file normalize [file join [file dirname [info script]] ..]]
-if {![llength [get_files -quiet */fh_router.v]]} {
-    add_files -norecurse [file join $router_hw rtl fh_router.v]
+foreach router_src {fh_router_dma.v fh_router_live.v fh_router.v} {
+    if {![llength [get_files -quiet */$router_src]]} {
+        add_files -norecurse [file join $router_hw rtl $router_src]
+    }
 }
 update_compile_order -fileset sources_1
 if {![llength [get_bd_cells -quiet fh_router_0]]} {

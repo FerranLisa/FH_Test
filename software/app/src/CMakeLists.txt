@@ -30,6 +30,8 @@ collector_list (_sources PROJECT_LIB_SOURCES)
 # Includes main.c, fh_eth_server.c and fh_frame_export.c.
 # lwip220 is linked through UserConfig.cmake from the regenerated BSP.
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} current_dir_sources)
+# Keep the strip encoder optimized even during a debug bring-up build.
+set_source_files_properties(fh_jpeg.c PROPERTIES COMPILE_OPTIONS "-O3")
 list(APPEND _sources ${current_dir_sources})
 list (APPEND _sources ${USER_COMPILE_SOURCES})
 foreach (source ${_sources})

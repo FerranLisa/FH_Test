@@ -9,6 +9,7 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
  input wire [1:0] texp_pins,
  output wire trigger_pair, output reg readout_pair,
  output reg [3:0] texp_drive,
+ output reg monitor_full_trigger, output wire [31:0] monitor_frame_id,
  input wire [31:0] control, output reg [31:0] status,
  output reg [31:0] m_axi_awaddr, output wire [2:0] m_axi_awprot,
  output reg m_axi_awvalid, input wire m_axi_awready,
@@ -93,6 +94,8 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
    end
  end
  wire command=control[31]!=toggle;
+ // The monitor observes the same accepted trigger and ID as the rolling buffer.
+ assign monitor_frame_id = reserved_id;
  assign m_axi_awprot=0;assign m_axi_arprot=0;assign m_axi_wstrb=15;
  assign m_axi_bready=bus==1;assign m_axi_rready=bus==2;
  task write_reg(input [31:0] a,input [31:0] d);
@@ -143,6 +146,7 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
    endcase
  end
  always @(posedge clk) begin
+   monitor_full_trigger<=0;
   if(!resetn) begin
    write_offset<=0;reserved_offset<=0;next_frame_id<=0;reserved_id<=0;id_exhausted<=0;
    lut_write<=0;scan_index<=0;lut_valid<=0;lookup_mode<=0;
@@ -270,6 +274,7 @@ module gmax3412_dual_ring #(parameter RESET_WAIT=128, POLL_LIMIT=240000000, TICK
            if(!epoch) begin epoch<=1;slot_ticks<=1;next_trigger<=SLOT_CYCLES;trigger_slots<=1;end
            edges_before_trigger<=completed_edges;
            reserved_tick<=trigger_slots+1;
+           monitor_full_trigger<=!roi;
            texp_drive<=4'b0011;exposure_left<=exposure_us*TICKS_PER_US-1;state<=22;
          end
         end

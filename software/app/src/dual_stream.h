@@ -174,6 +174,13 @@ static void test_gmax3412_dual(void)
     if(dual_diag(4)||dual_diag(8)!=R||dual_diag(9)!=4000U) {ok=0;goto cleanup;}
     xil_printf("  R=%lu; one stereo trigger every 4000 us; repeat F then R ROI. [GMAX3412-A + GMAX3412-B]\r\n",(unsigned long)R);
     xil_printf("  Exposure=%lu us; 16 channels; fixed exposure; busy timer ticks are discarded. [GMAX3412-A + GMAX3412-B]\r\n",(unsigned long)exposure_us);
+#ifndef FH_MONITOR_AMP
+    u8 monitor_mac[6];
+    fh_board_mac(monitor_mac);
+    int monitor_ready=fh_monitor_net_start(monitor_mac)==0;
+    xil_printf(monitor_ready ? "JPEG monitor listening on TCP 5002.\r\n" :
+                               "JPEG monitor unavailable; continuing RAW acquisition.\r\n");
+#endif
     time_prepare();
     start=capture_us();dual_cmd(2,0);
     if(!(dual_diag(1)&1U)){ok=0;goto cleanup;}
@@ -186,10 +193,16 @@ static void test_gmax3412_dual(void)
         }
         if(stopping && (status&1U) && capture_us()-stop_start>60000000ULL) {
             DualOwnershipBlocked=1;
+#ifndef FH_MONITOR_AMP
+            fh_monitor_net_stop();
+#endif
             xil_printf("  FAIL: controller did not release ownership. Reset/relaunch required; no DDR readback. [GMAX3412-A + GMAX3412-B]\r\n");
             return;
         }
-        usleep(1000);
+#ifndef FH_MONITOR_AMP
+        fh_monitor_net_poll();
+#endif
+        usleep(20);
     } while(status&1U);
     counts[0]=dual_diag(3);counts[1]=dual_diag(5);
     xil_printf("  Pairs: full=%lu ROI=%lu elapsed=%lu us timer slots=%lu. [GMAX3412-A + GMAX3412-B]\r\n",
@@ -198,6 +211,9 @@ static void test_gmax3412_dual(void)
     total=counts[0]+counts[1];
     if(counts[0]!=(total+R)/(R+1U)||counts[1]!=total-counts[0]) {ok=0;goto cleanup;}
 cleanup:
+#ifndef FH_MONITOR_AMP
+    fh_monitor_net_stop();
+#endif
     if(!ok) xil_printf("  Controller status=0x%08lx error=%lu DMA=0x%08lx capture=0x%08lx [GMAX3412-A + GMAX3412-B]\r\n",
       (unsigned long)dual_diag(1),(unsigned long)dual_diag(4),(unsigned long)dual_diag(6),(unsigned long)dual_diag(7));
     DualLastCaptureVerified=ok && !DualOwnershipBlocked &&
@@ -261,13 +277,13 @@ static int fh_frame_import_v30_lut(void)
     if ((dual_diag(1)&1U) || (plr_diag(1)&1U) || (burst_diag(1)&1U))
         goto fail;
     fh_frame_set_ddr_ready(1);
-    xil_printf("  V35 Ethernet: imported %lu valid stereo LUT entries (FrameID %lu..%lu). [GMAX3412-A + GMAX3412-B]\r\n",
+    xil_printf("  " FH_RELEASE " Ethernet: imported %lu valid stereo LUT entries (FrameID %lu..%lu). [GMAX3412-A + GMAX3412-B]\r\n",
         (unsigned long)count,(unsigned long)snapshot[0].FrameID,
         (unsigned long)snapshot[count-1U].FrameID);
     return 1;
 fail:
     fh_frame_reset();
-    xil_printf("  V35 Ethernet: LUT mirror rejected; network frame export DISABLED. [GMAX3412-A + GMAX3412-B]\r\n");
+    xil_printf("  " FH_RELEASE " Ethernet: LUT mirror rejected; network frame export DISABLED. [GMAX3412-A + GMAX3412-B]\r\n");
     return 0;
 }
 
