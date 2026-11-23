@@ -26,6 +26,7 @@ from fh_fetch import frame_times
 from fh_route import Route
 from fh_version import RELEASE_LABEL
 from fh_program import default_paths, launch as launch_jtag
+from fh_emmc import boot_files, install as install_emmc
 
 
 class Worker(QtCore.QThread):
@@ -70,7 +71,13 @@ class Worker(QtCore.QThread):
 
     def run(self):
         try:
-            if self.operation == 'catalog':
+            if self.operation == 'emmc':
+                if not self.armed.wait(5):
+                    raise RuntimeError('Board did not authorize eMMC upload. Load the updated standalone firmware and enter Ethernet export.')
+                result = self.request(lambda sock: install_emmc(
+                    sock, self.folder, self.token, self.cancelled.is_set, self.progress.emit),
+                    response_timeout=240)
+            elif self.operation == 'catalog':
                 # Only retry the read-only readiness probe, never image downloads.
                 deadline = time.monotonic() + 45
                 while True:
@@ -140,6 +147,7 @@ class FHTest(QtWidgets.QMainWindow):
         self.generation = 0
         self.rows, self.local_files, self.arrays = [], {}, []
         self.all_rows = []
+        self.emmc_available = False
         self.router_available = False
         self.pending_capture = False
         self.deadline = None
@@ -217,6 +225,8 @@ class FHTest(QtWidgets.QMainWindow):
         self.program_button = self.button(connections, 'Program & Run (JTAG)', self.program_board)
         self.program_button.setToolTip('Resets the board, loads BIT and FSBL, downloads and runs the A53 ELF. Clears retained frames.')
         self.program_files = self.button(connections, 'JTAG files...', self.configure_program)
+        self.emmc_button = self.button(connections, 'Install PetaLinux on eMMC...', self.program_emmc)
+        self.emmc_button.setToolTip('Connect UART and enter Ethernet export to install BOOT.BIN and image.ub.')
         connections.addStretch()
 
         capture = QtWidgets.QHBoxLayout()
@@ -470,6 +480,10 @@ class FHTest(QtWidgets.QMainWindow):
     def receive_uart(self):
         data = bytes(self.serial.readAll())
         self.raw_uart.extend(data)
+        if self.worker and self.worker.operation == 'emmc':
+            self.worker.arm_reply = (self.worker.arm_reply + data)[-max(128, len(data) + 32):]
+            if b'FH eMMC upload armed' in self.worker.arm_reply:
+                self.worker.armed.set()
         text = data.decode('utf-8', errors='replace')
         self.log(text)
         old = self.sequence.state
@@ -525,6 +539,7 @@ class FHTest(QtWidgets.QMainWindow):
 
     def invalidate_catalog(self):
         self.generation += 1
+        self.emmc_available = False
         self.rows, self.local_files = [], {}
         self.all_rows = []
         self.router_available = False
@@ -635,6 +650,10 @@ class FHTest(QtWidgets.QMainWindow):
     def worker_result(self, worker, generation, result):
         if generation != self.generation or worker.cancelled.is_set():
             return
+        if worker.operation == 'emmc':
+            self.progress.setValue(100)
+            self.notice(result)
+            return
         if worker.operation == 'program':
             self.notice('JTAG download and resume completed. Verify the application menu on UART before capture.')
             return
@@ -642,6 +661,7 @@ class FHTest(QtWidgets.QMainWindow):
             self.sequence.reset('export')
             self.deadline = None
             self.all_rows = result['rows']
+            self.emmc_available = result['status'].get('emmc') == '1'
             self.router_available = result['status'].get('router') == '1'
             self.rows = [r for r in self.all_rows if self.router_mode.currentIndex() != 1 or r['type'] == 'FULL']
             self.local_files = {}
@@ -829,6 +849,35 @@ class FHTest(QtWidgets.QMainWindow):
         if (dialog.exec() if hasattr(dialog, 'exec') else dialog.exec_()):
             for key, edit in edits.items(): self.settings.setValue('jtag/' + key, edit.text().strip())
 
+    def program_emmc(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(
+            self, 'Select folder containing BOOT.BIN and image.ub',
+            str(self.settings.value('emmc_folder', '')))
+        if not folder:
+            return
+        try:
+            files = boot_files(folder)
+        except (OSError, ValueError) as exc:
+            QtWidgets.QMessageBox.warning(self, 'PetaLinux boot files', str(exc))
+            return
+        host = self.host.text().strip()
+        details = '\n'.join(f'{path.name} ({path.stat().st_size:,} bytes)' for path in files)
+        yes = enum(QtWidgets.QMessageBox, 'StandardButton', 'Yes')
+        no = enum(QtWidgets.QMessageBox, 'StandardButton', 'No')
+        if QtWidgets.QMessageBox.question(
+                self, 'Replace eMMC boot files?',
+                f'{folder}\n{details}\n\nReplace these files on the eMMC boot volume of {host}?\n'
+                'Keep the board powered until verification completes.',
+                yes | no, no) != yes:
+            return
+        self.settings.setValue('emmc_folder', folder)
+        worker = Worker('emmc', host, self.port.value(), folder=folder)
+        worker.token = uuid.uuid4().hex
+        worker.armed = threading.Event()
+        worker.arm_reply = b''
+        if self.send(b'!' + worker.token.encode('ascii') + b'\n'):
+            self.run_worker(worker)
+
     def program_board(self):
         if self.worker or self.sequence.state not in ('unknown', 'menu', 'export'):
             return
@@ -855,6 +904,8 @@ class FHTest(QtWidgets.QMainWindow):
         state, connected, idle = self.sequence.state, self.serial.isOpen(), self.worker is None
         self.program_button.setEnabled(idle and state in ('unknown', 'menu', 'export'))
         self.program_files.setEnabled(idle)
+        self.emmc_button.setEnabled(idle and connected and self.emmc_available and state == 'export'
+                                    and bool(self.host.text().strip()))
         self.connect_button.setEnabled(idle)
         self.connect_button.setText('Disconnect' if connected else 'Connect')
         for widget in (self.com, self.baud, self.scan):

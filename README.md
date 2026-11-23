@@ -173,6 +173,15 @@ It stops on any failed stage and never launches synthesis, implementation or boa
 programming. Logs are in `hardware/results` and `software/logs`. Close the Vitis
 workspace before running; the script never deletes workspace locks.
 
+## Install PetaLinux boot files on the eMMC
+
+Build the standalone Vitis platform and application with `scripts/software.ps1 -Stage BuildPlatform` followed by `scripts/software.ps1 -Stage BuildApp`. Load the resulting firmware over JTAG. The standalone platform includes the writable XilFFS library for the SOM's SD0 eMMC.
+
+1. In FH_Test.py, connect UART, stop capture and select **Enter export**. An empty frame table is fine.
+2. Select **Install PetaLinux on eMMC...** and choose the PC folder containing `BOOT.BIN` and `image.ub`. Confirm the destination. UART authorizes one update, and the configured Ethernet TCP endpoint carries both files.
+3. Wait for **Verified BOOT.BIN and image.ub on eMMC.** The firmware stages both files on the existing FAT boot volume, rereads them and checks their sizes and CRC32 values before replacing the boot files. Allow enough free space for both new files. The updater reserves the `FHUPDATE` directory for staging and rollback. After an interrupted installation, rerun it from the standalone firmware before booting from eMMC.
+4. Select the board's eMMC boot mode and power-cycle. The PetaLinux build must be configured to load this FIT and supply its root filesystem (embedded in the image or already provisioned). This operation updates the two named files on an existing FAT volume.
+
 ## Console and board checks
 
 Expect the **FH_Emulator / FH_Carrier / V34** banner and startup board/clock

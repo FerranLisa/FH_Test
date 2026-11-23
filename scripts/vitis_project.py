@@ -37,6 +37,8 @@ def configure_domain(domain):
         if domain.get_config('os',name)['value'] != 'psu_uart_0':
             domain.set_config('os',name,'psu_uart_0')
     libraries = domain.get_libs()
+    if not AMP and not any(lib['name'] == 'xilffs' for lib in libraries):
+        domain.set_lib('xilffs')
     if not any(lib['name'] == 'lwip220' for lib in libraries):
         domain.set_lib('lwip220')
     else:

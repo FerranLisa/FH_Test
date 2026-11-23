@@ -4,6 +4,7 @@
  * UART ESC exits this dedicated service mode.
  */
 #include "fh_eth_server.h"
+#include "fh_emmc.h"
 #include "fh_frame_export.h"
 #include "fh_router.h"
 #include "fh_version.h"
@@ -92,6 +93,12 @@ typedef struct {
 static struct netif Netif;
 static struct tcp_pcb *Listener;
 static FhConnection Conn;
+#ifndef FH_MONITOR_AMP
+static char UpdateToken[33];
+static unsigned TokenChars;
+static int ReadingToken, UploadActive;
+static u64 TokenDeadline, UploadDeadline;
+#endif
 static void tcp_transfer_diagnostics(const char *reason);
 static int StackInitialized;
 static int Stopping;
@@ -337,6 +344,9 @@ static u32 crc_update(u32 crc, const u8 *data, u32 length)
 static void discard_client(int abort_now, const char *reason)
 {
     struct tcp_pcb *p = Conn.pcb;
+#ifndef FH_MONITOR_AMP
+    if (UploadActive) { fh_emmc_close(); UploadActive = 0; }
+#endif
     if (Conn.tx_state==TX_ROUTE_WAIT) fh_router_abort();
     if (!p) return;
     xil_printf("TCP %s: reason=%s state=%u queued=%lu acked=%lu\r\n",
@@ -437,6 +447,30 @@ static void parse_command(void)
         tokens[parsed++]=token;
         token=strtok(NULL," \t");
     }
+#ifndef FH_MONITOR_AMP
+    if (parsed && !strcmp(tokens[0], "EMMC")) {
+        unsigned long boot, fit;
+        if (parsed != 4 || !parse_number(tokens[2], &boot) || !boot ||
+            !parse_number(tokens[3], &fit) || !fit) {
+            set_reply("ERR invalid eMMC request\n"); return;
+        }
+        if (monotonic_us() >= TokenDeadline || strcmp(tokens[1], UpdateToken)) {
+            set_reply("ERR eMMC upload requires local UART authorization\n"); return;
+        }
+        TokenDeadline = 0;
+        const char *error = fh_emmc_begin((u32)boot, (u32)fit);
+        if (error || tcp_write(Conn.pcb, "READY EMMC\n", 11, TCP_WRITE_FLAG_COPY) != ERR_OK) {
+            fh_emmc_close();
+            set_reply(error ? error : "ERR cannot start upload\n"); return;
+        }
+        UploadActive = 1;
+        UploadDeadline = monotonic_us() + 120000000ULL;
+        Conn.bytes_queued += 11;
+        Conn.last_ack_us = monotonic_us();
+        tcp_output(Conn.pcb);
+        return;
+    }
+#endif
     if(parsed>0 && strcmp(tokens[0],"ROUTEPAIR")==0) {
         unsigned long v[7];
         if(token || parsed!=8) { set_reply("ERR ARG ROUTEPAIR id mode n x0 y0 x1 y1\n"); return; }
@@ -463,7 +497,11 @@ static void parse_command(void)
         char rtc[320];
         fh_rtc_status(rtc,sizeof rtc);
         snprintf(Conn.text,sizeof Conn.text,
-                 "STATUS protocol=1 timestamps=1 mode=stopped-only entries=%lu ready=%u capture=%u router=%u routed_protocol=2 release=" FH_RELEASE " release_state=" FH_RELEASE_STATE " %s\n",
+                 "STATUS protocol=1 timestamps=1 mode=stopped-only "
+#ifndef FH_MONITOR_AMP
+                 "emmc=1 "
+#endif
+                 "entries=%lu ready=%u capture=%u router=%u routed_protocol=2 release=" FH_RELEASE " release_state=" FH_RELEASE_STATE " %s\n",
                  (unsigned long)fh_frame_count(), (unsigned)fh_frame_is_ready(),
                  (unsigned)fh_frame_capture_active(), (unsigned)fh_router_available(),rtc);
         Conn.text_len=(u32)strlen(Conn.text); Conn.text_pos=0U;
@@ -597,7 +635,8 @@ static void pump_tx(void)
             Conn.crc=crc_update(Conn.crc,src,n);
         if (Conn.tx_state == TX_TEXT) Conn.text_pos+=n;
         else Conn.phase_pos+=n;
-        if (!Conn.bytes_queued) Conn.last_ack_us=monotonic_us();
+        /* Start timing when new data needs an ACK after an idle interval. */
+        if (Conn.bytes_queued == Conn.bytes_acked) Conn.last_ack_us=monotonic_us();
         Conn.bytes_queued+=(u64)n;
         queued_any=1;
     }
@@ -637,6 +676,23 @@ static err_t recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
         tcp_recved(pcb,p->tot_len);pbuf_free(p);
         return ERR_OK;
     }
+#ifndef FH_MONITOR_AMP
+    if (UploadActive) {
+        const char *reply = NULL;
+        for (q = p; q && !reply; q = q->next)
+            reply = fh_emmc_receive(q->payload, q->len);
+        tcp_recved(pcb, p->tot_len);
+        pbuf_free(p);
+        UploadDeadline = monotonic_us() + 120000000ULL;
+        if (reply) {
+            fh_emmc_close();
+            UploadActive = 0;
+            set_reply(reply);
+            pump_tx();
+        }
+        return CloseWasAbort ? ERR_ABRT : ERR_OK;
+    }
+#endif
     for (q=p; q; q=q->next) {
         data=(const char*)q->payload;
         for (j=0U;j<q->len;++j) {
@@ -656,7 +712,7 @@ static err_t recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
     pbuf_free(p);
     if (complete) {
         Conn.command[Conn.command_used]=0;
-        xil_printf("TCP request: %s\r\n", Conn.command);
+        xil_printf("TCP request: %s\r\n", strncmp(Conn.command,"EMMC ",5) ? Conn.command : "EMMC");
         parse_command();
         pump_tx();
         if (!Conn.pcb && CloseWasAbort) return ERR_ABRT;
@@ -684,6 +740,9 @@ static err_t poll_cb(void *arg,struct tcp_pcb *pcb)
 
 static void err_cb(void *arg,err_t err)
 {
+#ifndef FH_MONITOR_AMP
+    if (UploadActive) { fh_emmc_close(); UploadActive = 0; }
+#endif
     (void)arg;
     xil_printf("TCP lwIP error=%d state=%u queued=%lu acked=%lu\r\n", (int)err,
         (unsigned)Conn.tx_state, (unsigned long)Conn.bytes_queued, (unsigned long)Conn.bytes_acked);
@@ -1022,16 +1081,40 @@ int fh_eth_serve(const u8 mac[6])
     xil_printf("  Frame mirror: %lu entries; DDR ready: %u\r\n",
                (unsigned long)fh_frame_count(),(unsigned)fh_frame_is_ready());
     xil_printf("  D: GEM/PHY diagnostics; ESC exits; recording must be stopped.\r\n");
+#ifndef FH_MONITOR_AMP
+    TokenDeadline = 0;
+    ReadingToken = 0;
+#endif
     for (;;) {
         if (XUartPs_IsReceiveData(STDIN_BASEADDRESS)) {
             int c=inbyte();
             if (c==27) break;
+#ifndef FH_MONITOR_AMP
+            if (c == '!') {
+                ReadingToken = 1; TokenChars = 0; TokenDeadline = 0;
+            } else if (ReadingToken) {
+                if (TokenChars < 32 && ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
+                    UpdateToken[TokenChars++] = (char)c;
+                } else {
+                    ReadingToken = 0;
+                    if (c == '\n' && TokenChars == 32) {
+                        UpdateToken[32] = 0;
+                        TokenDeadline = monotonic_us() + 30000000ULL;
+                        xil_printf("FH eMMC upload armed\r\n");
+                    }
+                }
+            } else
+#endif
             if (c=='D' || c=='d') ethernet_diagnostics();
 
         }
         time_service();
         RxDelivered += (u32)xemacif_input(&Netif);
         service_timers();
+#ifndef FH_MONITOR_AMP
+        if (UploadActive && monotonic_us() >= UploadDeadline)
+            discard_client(1, "eMMC upload timed out");
+#endif
         if (reported_link != (int)netif_is_link_up(&Netif)) {
             reported_link = (int)netif_is_link_up(&Netif);
             xil_printf(reported_link ?
