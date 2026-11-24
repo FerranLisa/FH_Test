@@ -1,8 +1,8 @@
-# Reproducing FH_Emulator V33 for FH_Carrier
+# Reproducing FH_Firmware V33 for FH_Carrier
 
 Use Vivado/Vitis 2025.2. The current project uses the original root layout:
-`hardware/vivado/FH_Emulator.xpr`, `software/workspace/FH_Emulator_platform`,
-and `software/workspace/FH_Emulator_App`. See [GUI build instructions](../README.md).
+`hardware/vivado/FH_Firmware.xpr`, `software/workspace/FH_TestPlatform`,
+and `software/workspace/FH_TestApp`. See [GUI build instructions](../README.md).
 
 For a fresh checkout, run these preparation stages from the root. They create
 projects and a design-only XSA without synthesis, implementation or C builds:
@@ -15,7 +15,7 @@ powershell -ExecutionPolicy Bypass -File scripts/software.ps1 -Stage CreateApp
 ```
 
 Compile hardware in Vivado, source `hardware/scripts/export_gui.tcl`, update the
-existing Vitis platform to `hardware/exports/FH_Emulator.xsa`, and build platform
+existing Vitis platform to `hardware/exports/FH_Firmware.xsa`, and build platform
 and application in Vitis. Use the matching newly generated FSBL, BIT and ELF.
 The KFB-specific PHY patch is no longer part of this project.
 

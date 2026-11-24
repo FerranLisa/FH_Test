@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 
 from fh_fetch import ProtocolError, fetch_image, read_line
+from fh_version import RELEASE
 from fh_route import Route
 
 
@@ -72,7 +73,7 @@ class CaptureSequence:
                 self.monitor_ready = False
             elif line.startswith('Pairs:'):
                 self.state = 'verifying'
-            elif line.startswith(('V31 Ethernet: imported ', 'V32 Ethernet: imported ', 'V33 Ethernet: imported ', 'V33.1 Ethernet: imported ', 'V34 Ethernet: imported ', 'V35 Ethernet: imported ', 'V35.1 Ethernet: imported ')):
+            elif line.startswith(('V31 Ethernet: imported ', 'V32 Ethernet: imported ', 'V33 Ethernet: imported ', 'V33.1 Ethernet: imported ', 'V34 Ethernet: imported ', 'V35 Ethernet: imported ', 'V35.1 Ethernet: imported ', f'{RELEASE} Ethernet: imported ')):
                 self.state = 'menu'
                 events.append(('verified', line))
             elif ('Export unavailable until U passes.' in line or
@@ -94,7 +95,7 @@ class CaptureSequence:
                 self.state = 'menu'
                 events.append(('failure', line))
             elif self.state == 'entering_export' and (
-                    'Load the matching FH_Emulator bitstream first.' in line or
+                    'Load the matching FH_Firmware bitstream first.' in line or
                     'Capture owns DMA or hardware signature mismatch.' in line or
                     'Stop all capture owners before starting Ethernet.' in line):
                 self.state = 'menu'

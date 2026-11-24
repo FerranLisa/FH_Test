@@ -5,10 +5,10 @@ have not been run for this change. The existing BIT/XSA/ELF do not contain the R
 
 ## Build from the GUI
 
-1. Open `hardware/vivado/FH_Emulator.xpr` in Vivado 2025.2. In its Tcl Console run:
+1. Open `hardware/vivado/FH_Firmware.xpr` in Vivado 2025.2. In its Tcl Console run:
 
    ```tcl
-   source C:/Projects/FH_Emulator/hardware/scripts/prepare_router_gui.tcl
+   source C:/Projects/FH_Test/hardware/scripts/prepare_router_gui.tcl
    ```
 
    This adds the RTL and export DMA, connects the block design, validates/saves it,
@@ -29,15 +29,15 @@ have not been run for this change. The existing BIT/XSA/ELF do not contain the R
    pre-Router hardware results.
 
 4. Export the updated hardware with the bitstream included, using
-   `hardware/exports/FH_Emulator.xsa` as the handoff filename. Keep the matching BIT.
+   `hardware/exports/FH_Firmware.xsa` as the handoff filename. Keep the matching BIT.
 
 5. Open `software/workspace` in Vitis. Update the existing
-   `FH_Emulator_platform` hardware specification to that XSA. Confirm the refreshed
+   `FH_TestPlatform` hardware specification to that XSA. Confirm the refreshed
    BSP has `XPAR_FH_EXPORT_DMA_BASEADDR` at `0xA00D0000`. Preserve the existing
    standalone/lwIP settings and Realtek PHY patch described in REPRODUCING.md;
    hardware replacement can regenerate BSP files.
 
-6. Build the platform and `FH_Emulator_App` from the Vitis GUI. The current generated
+6. Build the platform and `FH_TestApp` from the Vitis GUI. The current generated
    app workspace has been synchronized with the changed canonical files:
    `fh_eth_server.c`, `fh_router.c`, `fh_router.h`, and `UserConfig.cmake`.
    Refresh/reload externally changed files if Vitis was open. For a newly imported

@@ -10,7 +10,7 @@ python FH_Test.py
 The application uses Qt SerialPort, included with PyQt6; pyserial is not needed.
 The existing PyQt5 viewer fallback is also supported when QtSerialPort is installed.
 No Vivado/Vitis build or firmware change is required. Program and run the matching
-FH_Emulator firmware separately before connecting.
+FH_Firmware firmware separately before connecting.
 
 ## Normal workflow
 

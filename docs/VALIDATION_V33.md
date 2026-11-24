@@ -2,14 +2,14 @@
 
 13 November 2026. This records project preparation, not a compiled release.
 
-- Vivado 2025.2 created `FH_Emulator.xpr` and validated the expanded block
+- Vivado 2025.2 created `FH_Firmware.xpr` and validated the expanded block
   design. `hardware/results/root_create.log` ends with `FH_CARRIER_PROJECT_READY`.
-- Output products and `FH_Emulator_design.xsa` were generated successfully.
+- Output products and `FH_Firmware_design.xsa` were generated successfully.
   The XSA contains the carrier peripherals, both emulators, PL DDR and Router;
   it contains no bitstream.
-- Vitis created `FH_Emulator_platform` with the `standalone` A53 domain,
+- Vitis created `FH_TestPlatform` with the `standalone` A53 domain,
   configured lwIP and generated the FSBL/BSP sources. It created
-  `FH_Emulator_App` and imported the V33 sources. Native sources match
+  `FH_TestApp` and imported the V33 sources. Native sources match
   the maintained snapshot. The final creation run has no object-path warning.
 - Static checks compare the PS configuration, baseline nets and address map with
   FH_Bringup. Existing connections and mapped/excluded segments are preserved.

@@ -15,11 +15,11 @@ import workspace_pb2
 ROOT=Path(__file__).resolve().parents[1]
 AMP=os.environ.get('FH_MONITOR_AMP') == '1'
 WORKSPACE=ROOT/('software/workspace_amp' if AMP else 'software/workspace')
-PLATFORM='FH_Emulator_platform'
-APP='FH_Emulator_App'
+PLATFORM='FH_TestPlatform'
+APP='FH_TestApp'
 DOMAIN='standalone'  # Keep generated Windows object paths below 250 characters.
-XSA=ROOT/'hardware/exports/FH_Emulator.xsa'
-if not XSA.is_file(): XSA=ROOT/'hardware/exports/FH_Emulator_design.xsa'
+XSA=ROOT/'hardware/exports/FH_Firmware.xsa'
+if not XSA.is_file(): XSA=ROOT/'hardware/exports/FH_Firmware_design.xsa'
 LWIP={
     'lwip220_api_mode':'RAW_API',
     'lwip220_no_sys_no_timers':'true',
@@ -80,7 +80,7 @@ class UpdatedPlatformDisconnected(RuntimeError):
 
 def main():
     stage=os.environ['FH_VITIS_STAGE']
-    if not XSA.is_file(): raise RuntimeError('Export the new design handoff or final FH_Emulator XSA first')
+    if not XSA.is_file(): raise RuntimeError('Export the new design handoff or final FH_Firmware XSA first')
     # An explicit free port avoids Vitis 2025.2's EOF loop if its Java server
     # exits before printing an automatically selected port.
     if os.environ.get('FH_VITIS_PORT'):
@@ -108,7 +108,7 @@ def main():
             print('Platform configured. BuildPlatform generates and compiles BSP/FSBL next.')
         elif stage=='BuildPlatform':
             platform=client.get_component(name=PLATFORM)
-            final_xsa=ROOT/'hardware/exports/FH_Emulator.xsa'
+            final_xsa=ROOT/'hardware/exports/FH_Firmware.xsa'
             if not final_xsa.is_file():
                 raise RuntimeError('Run implementation and Export first; the design-only XSA has no bitstream')
             imported_xsa=WORKSPACE/PLATFORM/'hw'/final_xsa.name

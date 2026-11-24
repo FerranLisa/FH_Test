@@ -16,7 +16,7 @@ class CarrierConsoleTests(unittest.TestCase):
         text = ''.join(bytes(s, 'utf-8').decode('unicode_escape')
                        for s in re.findall(r'xil_printf\("([^"\n]*)"\);', menu))
         seq = CaptureSequence()
-        seq.feed(' FH_Emulator / FH_Carrier / V33 (in-validation)\r\n')
+        seq.feed(' FH_Firmware / FH_Carrier / V33 (in-validation)\r\n')
         for char in text:
             seq.feed(char)
         self.assertEqual(seq.start(24, 1000, 10), b'U')

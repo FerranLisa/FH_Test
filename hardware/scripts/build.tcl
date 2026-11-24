@@ -2,7 +2,7 @@ set hw [file normalize [file join [file dirname [info script]] ..]]
 source [file join $hw scripts vivado_local_bootstrap.tcl]
 set stage [lindex $argv 0]
 if {$stage ni {synth implement export}} {error "Stage must be synth, implement or export"}
-open_project [file join $hw vivado FH_Emulator.xpr]
+open_project [file join $hw vivado FH_Firmware.xpr]
 set_param general.maxThreads 8
 if {$stage eq "synth"} {
     open_bd_design [get_files */design_1.bd]
@@ -82,12 +82,12 @@ if {$stage eq "synth"} {
     if {[llength $violations]} {error "DRC errors/critical warnings; inspect drc.rpt"}
     set violations [get_methodology_violations -quiet -filter {SEVERITY == Error || SEVERITY == {Critical Warning}}]
     if {[llength $violations]} {error "Methodology errors/critical warnings; inspect methodology.rpt"}
-    set stem [file join $hw exports FH_Emulator]
+    set stem [file join $hw exports FH_Firmware]
     set native_bit [file join [get_property DIRECTORY [get_runs impl_1]] FH_Carrier_Bringup_top.bit]
     if {![file exists $native_bit]} {error "Implementation has not produced a bitstream"}
     file copy -force $native_bit ${stem}.bit
     write_debug_probes -force ${stem}.ltx
     write_hw_platform -fixed -include_bit -force -file ${stem}.xsa
-    puts "FH_EMULATOR_EXPORT_COMPLETE"
+    puts "FH_FIRMWARE_EXPORT_COMPLETE"
 }
 close_project

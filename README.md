@@ -1,6 +1,12 @@
-# FH_Test — V35.1
+# FH_Test — V35.2
 
 Two physical GMAX3412 receivers on FH_Carrier. Startup reports independent initialization and 16-lane training results. UART 8 and 9 open sensor diagnostics. Enter C1 or C2 with an optional exposure in microseconds, followed by Enter (for example C2:2000). The default is 1000 us. U:3000 sets a 3000 us exposure on both sensors for this run and asks for R and duration. Plain U also prompts for exposure (default 1000 us). U arms both receivers and strobes both TEXP1 lines together. R selects how many central 4096 × 1024 crops to retain between full frames. Both sensors read full frames. Busy 4 ms timer slots are skipped. N exports retained images; Ethernet sensor indices are 0 and 1.
+
+## Changes in V35.2
+
+- Vivado builds and exports FH_Firmware. Vitis builds FH_TestPlatform and FH_TestApp. The build scripts and desktop JTAG defaults use these names.
+- The desktop application can upload BOOT.BIN and image.ub to eMMC and verify the transfer.
+- Validation included bitstream generation, verification of the bitstream embedded in the exported XSA, and a successful build of the renamed Vitis application.
 
 ## Changes in V35.1
 
@@ -44,7 +50,19 @@ with `Remove-Item Env:FH_MONITOR_AMP -ErrorAction SilentlyContinue` in the
 same PowerShell session. The deferred [VCU profile](software/monitor/README.md)
 is separate.
 
-## Build V35.1
+## Project names
+
+`FH_Test` is the repository and desktop application name. The Vivado project and the two Vitis components use the following names. Paths are relative to the repository root.
+
+| Component | Previous name | Current name | Generated project or executable |
+| --- | --- | --- | --- |
+| Vivado project | `FH_Emulator` | `FH_Firmware` | `hardware/vivado/FH_Firmware.xpr` |
+| Vitis platform | `FH_Emulator_platform` | `FH_TestPlatform` | `software/workspace/FH_TestPlatform/export/FH_TestPlatform/FH_TestPlatform.xpfm` |
+| Vitis application | `FH_Emulator_App` | `FH_TestApp` | `software/workspace/FH_TestApp/build/FH_TestApp.elf` |
+
+Vivado names the implementation bitstream `FH_Carrier_Bringup_top.bit` after the top-level RTL module. The export step copies it to `hardware/exports/FH_Firmware.bit` and writes the matching `FH_Firmware.ltx` debug probes and `FH_Firmware.xsa` hardware handoff in the same directory. Vitis uses that XSA to build `FH_TestPlatform`.
+
+## Build V35.2
 
 Close Vivado and Vitis, then run the following command from the FH_Test project root.
 
@@ -54,9 +72,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_all.ps1
 
 The script creates the Vivado project if needed, runs synthesis and implementation through bitstream generation, validates and exports the XSA, and builds the Vitis platform and application. Vivado logs are under `hardware/results` and Vitis logs are under `software/logs`.
 
+On the first build after the rename, the script creates the new projects from the tracked sources. If you edited sources directly in an earlier Vitis workspace, reconcile those edits with `software/app/src` before building.
+
+If bitstream generation has already completed in `FH_Firmware`, run the following from the repository root to reuse that implementation, export the hardware and build the Vitis platform and application.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\export_build.ps1
+```
+
 ## Previous revision and build instructions
 
-# FH_Emulator V34 — FH_Carrier
+# FH_Firmware V34 — FH_Carrier
 
 19 November 2026. The physical FH_Sen4K / GMAX3412-A single-frame capture workflow has been verified on FH_Carrier.
 
@@ -85,10 +111,10 @@ The script creates the Vivado project if needed, runs synthesis and implementati
 
 ## Projects to open
 
-- Vivado 2025.2: `hardware/vivado/FH_Emulator.xpr`.
+- Vivado 2025.2: `hardware/vivado/FH_Firmware.xpr`.
 - Vitis 2025.2 workspace: `software/workspace`.
-- Platform: `FH_Emulator_platform`.
-- Application: `FH_Emulator_App`, standalone A53 #0, 64-bit.
+- Platform: `FH_TestPlatform`.
+- Application: `FH_TestApp`, standalone A53 #0, 64-bit.
 - BSP domain: `standalone` (short name avoids Windows object-path limits).
 - Desktop application: `python FH_Test.py` from the repository root.
   Its V34 title, saved settings and default programming paths are carrier-specific.
@@ -96,7 +122,7 @@ The script creates the Vivado project if needed, runs synthesis and implementati
 
 The Vivado top retains the name `FH_Carrier_Bringup_top` because the validated
 carrier XDC and receiver ILA hook reference its hierarchy. This is not the old
-project: all source/IP paths resolve inside FH_Emulator.
+project: all source/IP paths resolve inside FH_Test.
 
 ## Included features
 
@@ -134,15 +160,15 @@ patching the installed BSP sources. Default IP is 192.168.1.123/24, gateway
 3. Inspect timing/DRC/methodology. In the Vivado Tcl Console run:
 
    ```tcl
-   source C:/Projects/FH_Emulator/hardware/scripts/export_gui.tcl
+   source C:/Projects/FH_Test/hardware/scripts/export_gui.tcl
    ```
 
    This checks completed, current runs and timing (including pulse width and bus
-   skew), then exports `hardware/exports/FH_Emulator.bit`, `.ltx` and `.xsa`.
+   skew), then exports `hardware/exports/FH_Firmware.bit`, `.ltx` and `.xsa`.
    It does not compile. It refuses an incomplete/stale or failing implementation.
-4. Open Vitis with `C:\Projects\FH_Emulator\software\workspace`.
-   Update **FH_Emulator_platform → Hardware Specification** to the final
-   `hardware/exports/FH_Emulator.xsa`, replacing any design-only handoff.
+4. Open Vitis with `C:\Projects\FH_Test\software\workspace`.
+   Update **FH_TestPlatform → Hardware Specification** to the final
+   `hardware/exports/FH_Firmware.xsa`, replacing any design-only handoff.
 5. **Build Platform**, including its freshly generated FSBL, then **Build
    Application**. Do not use a KFB or old FH_Bringup FSBL/ELF.
 6. Create a hardware debug launch for A53 #0 using the matching BIT, carrier FSBL
@@ -153,7 +179,7 @@ Initial platform settings: standalone stdin/stdout `psu_uart_0`; lwip220 RAW_API
 `no_sys_no_timers=true`, IPv6/DHCP disabled; TCP send/window 32768/16384;
 512 TCP segments; memory 262144. Application heap/stack are 1 MiB/64 KiB.
 
-Edit the native Vitis `software/workspace/FH_Emulator_App/src` after creation.
+Edit the native Vitis `software/workspace/FH_TestApp/src` after creation.
 The tracked `software/app/src` is the creation snapshot; maintain it alongside
 native edits for reproducibility. Build commands never silently reimport sources.
 
@@ -184,7 +210,7 @@ Build the standalone Vitis platform and application with `scripts/software.ps1 -
 
 ## Console and board checks
 
-Expect the **FH_Emulator / FH_Carrier / V34** banner and startup board/clock
+Expect the **FH_Firmware / FH_Carrier / V34** banner and startup board/clock
 diagnostics. The main commands are:
 
 | Command | Action |

@@ -3,10 +3,10 @@ set hw [file normalize [file join [file dirname [info script]] ..]]
 source [file join $hw scripts vivado_local_bootstrap.tcl]
 if {![string match 2025.2* [version -short]]} {error "Use Vivado 2025.2"}
 if {[llength [get_projects -quiet]]} {error "Close the current project first"}
-if {[file exists [file join $hw vivado FH_Emulator.xpr]]} {
-    error "Open the existing FH_Emulator.xpr instead of recreating it"
+if {[file exists [file join $hw vivado FH_Firmware.xpr]]} {
+    error "Open the existing FH_Firmware.xpr instead of recreating it"
 }
-create_project FH_Emulator [file join $hw vivado] -part xczu7ev-ffvc1156-2-i
+create_project FH_Firmware [file join $hw vivado] -part xczu7ev-ffvc1156-2-i
 set_property target_language Verilog [current_project]
 set_property XPM_LIBRARIES {XPM_CDC XPM_FIFO} [current_project]
 set_property ip_repo_paths [list [file join $hw ip]] [current_project]

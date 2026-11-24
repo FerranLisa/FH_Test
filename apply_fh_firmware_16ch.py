@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Apply the GMAX3412 16-channel Sub-LVDS fix to local FH_Emulator sources.
+"""Apply the GMAX3412 16-channel Sub-LVDS fix to local FH_Firmware sources.
 
-Usage (Windows): py apply_fh_emulator_16ch.py C:\\Projects\\FH_Emulator
+Usage (Windows): py apply_fh_firmware_16ch.py C:\\Projects\\FH_Test
 Only handwritten firmware sources are modified; build output is excluded.
 """
 from __future__ import annotations
@@ -90,7 +90,7 @@ def patch(text: str) -> tuple[str, list[str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root", nargs="?", default=r"C:\Projects\FH_Emulator")
+    parser.add_argument("root", nargs="?", default=r"C:\Projects\FH_Test")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     root = Path(args.root).expanduser()
@@ -118,7 +118,7 @@ def main() -> int:
             for path in already:
                 print(f"  {path}")
             return 0
-        print("ERROR: No matching handwritten GMAX3412 configuration found in FH_Emulator.", file=sys.stderr)
+        print("ERROR: No matching handwritten GMAX3412 configuration found in FH_Firmware.", file=sys.stderr)
         print("No files modified. The live source may be in another project or use a different register table.", file=sys.stderr)
         return 3
     for path, raw, old, new, notes in eligible:

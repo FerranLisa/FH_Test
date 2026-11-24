@@ -153,7 +153,21 @@ class FHTest(QtWidgets.QMainWindow):
         self.deadline = None
         self.output_root = ROOT / 'images' / 'sessions'
         self.session = None
-        self.settings = QtCore.QSettings('FH_Emulator', 'FH_Test')
+        self.settings = QtCore.QSettings('FH_Firmware', 'FH_Test')
+        if not self.settings.contains('settings_migrated'):
+            previous = QtCore.QSettings('FH_Emulator', 'FH_Test')
+            for key in previous.allKeys():
+                value = previous.value(key)
+                if key.startswith('jtag/'):
+                    default = default_paths(ROOT).get(key[5:])
+                    if default is not None:
+                        old = str(default).replace('FH_TestPlatform', 'FH_Emulator_platform')
+                        old = old.replace('FH_TestApp', 'FH_Emulator_App').replace('FH_Firmware', 'FH_Emulator')
+                        if Path(str(value)) == Path(old):
+                            value = str(default)
+                if not self.settings.contains(key):
+                    self.settings.setValue(key, value)
+            self.settings.setValue('settings_migrated', True)
         self.serial = QtSerialPort.QSerialPort(self)
         self.serial.readyRead.connect(self.receive_uart)
         self.serial.errorOccurred.connect(self.serial_error)

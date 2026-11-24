@@ -1,7 +1,7 @@
 # Source from the GUI after Generate Bitstream succeeds. Never launches a build.
 set hw [file normalize [file join [file dirname [info script]] ..]]
-if {[get_property NAME [current_project]] ne "FH_Emulator"} {
-    error "Open FH_Emulator.xpr first"
+if {[get_property NAME [current_project]] ne "FH_Firmware"} {
+    error "Open FH_Firmware.xpr first"
 }
 foreach run {synth_1 impl_1} {
     if {[get_property PROGRESS [get_runs $run]] ne "100%" ||
@@ -33,7 +33,7 @@ if {[llength [get_drc_violations -quiet -filter {SEVERITY == Error || SEVERITY =
 if {[llength [get_methodology_violations -quiet -filter {SEVERITY == Error || SEVERITY == {Critical Warning}}]]} {
     error "Methodology signoff failed"
 }
-set stem [file join $hw exports FH_Emulator]
+set stem [file join $hw exports FH_Firmware]
 set native_bit [file join [get_property DIRECTORY [get_runs impl_1]] FH_Carrier_Bringup_top.bit]
 if {![file exists $native_bit]} {error "Generate Bitstream in the GUI first"}
 file copy -force $native_bit ${stem}.bit

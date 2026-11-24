@@ -33,7 +33,7 @@ for endpoints in [('fh_export_dma/M_AXI_MM2S', 'pl_ddr_smc/S03_AXI'),
 for cell in ('gmax_capture', 'gmax_capture_b'):
     assert values(d['components'][cell])['AXIS_WIDTH'] == '256'
 
-xsa = ROOT/'hardware/exports/FH_Emulator_design.xsa'
+xsa = ROOT/'hardware/exports/FH_Firmware_design.xsa'
 if xsa.exists():
     with zipfile.ZipFile(xsa) as archive:
         assert not any(n.endswith('.bit') for n in archive.namelist())
@@ -52,20 +52,26 @@ app = ROOT/'software/app/src'
 main = (app/'main.c').read_text()
 assert main.count('int main(void)') == 1
 assert 'FH_Carrier Bring-Up Test - V31.1' not in main
-assert '#define FH_RELEASE "V35.1"' in (app/'fh_version.h').read_text()
-assert "RELEASE = 'V35.1'" in (ROOT/'software/host/fh_version.py').read_text()
+assert '#define FH_RELEASE "V35.2"' in (app/'fh_version.h').read_text()
+assert "RELEASE = 'V35.2'" in (ROOT/'software/host/fh_version.py').read_text()
 assert 'toggle_phy_tx_delay' not in (app/'fh_eth_server.c').read_text()
 assert 'patch_kfb_phy' not in (ROOT/'scripts/vitis_project.py').read_text()
 for p in app.glob('*'):
     if p.suffix in ('.c', '.h'):
         for include in re.findall(r'#include "(fh_[^"]+|dual_stream.h)"', p.read_text()):
             assert (app/include).is_file(), (p, include)
-native = ROOT/'software/workspace/FH_Emulator_App/src'
+native = ROOT/'software/workspace/FH_TestApp/src'
 if native.exists():
     for p in app.iterdir():
         if p.is_file():
             # Vitis may normalize CMake files to Windows line endings on import.
-            assert (native/p.name).read_text() == p.read_text(), ('native source differs', p.name)
+            actual = (native/p.name).read_text()
+            if p.name == 'CMakeLists.txt':
+                # Vitis inserts the standalone BSP's xilffs into this generated
+                # list. The tracked template also selects it by build profile.
+                actual = actual.replace('collect(PROJECT_LIB_DEPS xilstandalone;xiltimer;xilffs;lwip220)',
+                                        'collect(PROJECT_LIB_DEPS xilstandalone;xiltimer;lwip220)')
+            assert actual == p.read_text(), ('native source differs', p.name)
 print('PASS: physical sensor interfaces, bank 67 pin coverage, Router connections,')
 print('256-bit capture streams, local IP dependencies, Python syntax and software sources.')
 print('No compilation, timing signoff or board test performed.')

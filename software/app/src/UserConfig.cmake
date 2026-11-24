@@ -35,10 +35,13 @@ set(USER_INCLUDE_DIRECTORIES
 #Example 2: Adding ../../common/helloworld.c will consider the path as relative to this component directory
 #Example 3: Adding ${MY_ENV}/data/helloworld.c are expanded using project-specific environment settings.
 set(USER_COMPILE_SOURCES
-"fh_xemacpsif_physpeed.c"
+"fh_emmc.c"
 "fh_eth_server.c"
 "fh_frame_export.c"
+"fh_jpeg.c"
+"fh_jpeg_monitor.c"
 "fh_router.c"
+"fh_xemacpsif_physpeed.c"
 "main.c"
 )
 

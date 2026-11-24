@@ -4,7 +4,7 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$project = Join-Path $root 'hardware/vivado/FH_Emulator.xpr'
+$project = Join-Path $root 'hardware/vivado/FH_Firmware.xpr'
 $hardware = Join-Path $PSScriptRoot 'hardware.ps1'
 
 if (-not (Test-Path -LiteralPath $project -PathType Leaf)) {

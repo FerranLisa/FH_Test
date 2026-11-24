@@ -221,7 +221,7 @@
   },
   {
     "source": "C:\\Projects\\FH_Emulator\\software\\app\\src\\fh_emulator_tables.h",
-    "destination": "software/app/src/fh_emulator_tables.h",
+    "destination": "software/app/src/fh_firmware_tables.h",
     "sha256": "eb20c1f95347d4e4ea0e89dc701ee3675c7875435f5f06d576c3214a1e41f23e"
   },
   {

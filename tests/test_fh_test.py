@@ -50,16 +50,16 @@ class SequenceTests(unittest.TestCase):
         seq = CaptureSequence()
         seq.reset('menu')
         for _ in range(2):
-            self.assertEqual(seq.feed(' FH_Emulator / FH_Carrier / V33\r\n'), [])
+            self.assertEqual(seq.feed(' FH_Firmware / FH_Carrier / V33\r\n'), [])
             self.assertEqual(seq.state, 'menu')
 
     def test_fragmented_boot_detected_once(self):
         seq = CaptureSequence()
         seq.reset('capturing')
         events = []
-        for c in (' FH_Emulator / FH_Carrier / V33\r\n'
+        for c in (' FH_Firmware / FH_Carrier / V33\r\n'
                   ' PZ-ZU7EV / Cortex-A53_0\r\n'
-                  ' FH_Emulator / FH_Carrier / V33\r\n'
+                  ' FH_Firmware / FH_Carrier / V33\r\n'
                   ' U   - Fixed-exposure 250 Hz timer stereo capture\r\n'):
             events.extend(seq.feed(c))
         self.assertEqual([e[0] for e in events], ['reset'])

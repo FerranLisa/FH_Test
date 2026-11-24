@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib, zipfile
 import xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
-stem=root/'hardware/exports/FH_Emulator'
+stem=root/'hardware/exports/FH_Firmware'
 with zipfile.ZipFile(stem.with_suffix('.xsa')) as z:
     bits=[n for n in z.namelist() if n.endswith('.bit')]
     assert len(bits)==1,'Expected exactly one embedded bitstream'

@@ -13,14 +13,14 @@ import zipfile
 
 def default_paths(root):
     root = Path(root)
-    platform = root / 'software/workspace/FH_Emulator_platform'
+    platform = root / 'software/workspace/FH_TestPlatform'
     return dict(
         xsdb=Path('C:/AMDDesignTools/2025.2/Vitis/bin/xsdb.bat'),
-        xsa=root / 'hardware/exports/FH_Emulator.xsa',
-        bit=root / 'hardware/exports/FH_Emulator.bit',
-        elf=root / 'software/workspace/FH_Emulator_App/build/FH_Emulator_App.elf',
-        fsbl=platform / 'export/FH_Emulator_platform/sw/boot/fsbl.elf',
-        platform_xsa=platform / 'hw/FH_Emulator.xsa')
+        xsa=root / 'hardware/exports/FH_Firmware.xsa',
+        bit=root / 'hardware/exports/FH_Firmware.bit',
+        elf=root / 'software/workspace/FH_TestApp/build/FH_TestApp.elf',
+        fsbl=platform / 'export/FH_TestPlatform/sw/boot/fsbl.elf',
+        platform_xsa=platform / 'hw/FH_Firmware.xsa')
 
 
 def digest(data):

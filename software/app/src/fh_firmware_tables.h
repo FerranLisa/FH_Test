@@ -1,5 +1,5 @@
-#ifndef FH_EMULATOR_TABLES_H
-#define FH_EMULATOR_TABLES_H
+#ifndef FH_FIRMWARE_TABLES_H
+#define FH_FIRMWARE_TABLES_H
 #include "xil_io.h"
 static inline void fh_sensor_lut_write(UINTPTR base,u8 index,u32 cycles,
                                       u8 flash,u8 analog,u16 digital,u8 roi)

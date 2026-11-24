@@ -7,7 +7,7 @@ proc rejects {script pattern} {
         error "Expected rejection $pattern, got: $message"
     }
 }
-set run [file join $root hardware vivado FH_Emulator.runs impl_1]
+set run [file join $root hardware vivado FH_Firmware.runs impl_1]
 set original [read_text [file join $run design_1_wrapper_timing_summary_routed.rpt]]
 rejects {require_timing_summary $original} {*setup*}
 # Isolate the table from the real report. Exercise each metric independently.

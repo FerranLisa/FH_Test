@@ -3,7 +3,7 @@ from pathlib import Path
 import zipfile
 import xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
-with zipfile.ZipFile(root/'hardware/exports/FH_Emulator_design.xsa') as z:
+with zipfile.ZipFile(root/'hardware/exports/FH_Firmware_design.xsa') as z:
     hwh=[n for n in z.namelist() if n.split('/')[-1]=='design_1.hwh']
     assert len(hwh)==1,'Hardware-only XSA lacks a valid HWH; regenerate BD output products'
     assert not any(n.endswith('.bit') for n in z.namelist()),'Design-only XSA unexpectedly contains a bitstream'

@@ -1,5 +1,5 @@
 /*
- * FH_Emulator V34 / FH_Carrier
+ * FH_Firmware V34 / FH_Carrier
  * PZ-ZU7EV / Cortex-A53_0
  *
  * Revision: V33 carrier integration; V30 capture, V32 Router, V16.3 receiver.
@@ -1263,7 +1263,7 @@ static void show_menu(void)
 {
     xil_printf("\r\n");
     xil_printf("========================================\r\n");
-    xil_printf(" FH_Emulator / FH_Carrier / " FH_RELEASE_LABEL "\r\n");
+    xil_printf(" FH_Firmware / FH_Carrier / " FH_RELEASE_LABEL "\r\n");
     xil_printf("========================================\r\n");
     xil_printf(" 1   - Read Power-Good signals\r\n");
     xil_printf(" 2   - EEPROM full dump\r\n");
@@ -6966,7 +6966,7 @@ int main(void)
 
     xil_printf("\r\n\r\n");
     xil_printf("========================================\r\n");
-    xil_printf(" FH_Emulator / FH_Carrier / " FH_RELEASE_LABEL "\r\n");
+    xil_printf(" FH_Firmware / FH_Carrier / " FH_RELEASE_LABEL "\r\n");
 #ifdef FH_MONITOR_AMP
     xil_printf(" PZ-ZU7EV / Cortex-A53_3 / stereo monitor AMP\r\n");
 #else
@@ -7108,7 +7108,7 @@ int main(void)
         case 0x1B:
             xil_printf("\r\n");
             xil_printf("ESC received.\r\n");
-            xil_printf("Exiting FH_Emulator FH_Carrier.\r\n");
+            xil_printf("Exiting FH_Firmware FH_Carrier.\r\n");
             return 0;
 
         case '\r':

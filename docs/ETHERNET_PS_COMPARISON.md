@@ -7,9 +7,9 @@ sources, XSA, FSBL binaries or bitstreams were modified; no build was run.
 
 - Tested commit `2bc7230`: `docs/board_configuration.json`.
 - Current source: `hardware/bd/design_1.bd` and configuration manifest.
-- Current export: `hardware/exports/FH_Emulator.xsa` (`design_1.hwh`, `psu_init.c`).
-- Archived export: `hardware/exports/FH_Emulator_design_PZ.xsa` (same members).
-- Current FSBL source: `software/workspace/FH_Emulator_platform/zynqmp_fsbl/psu_init.c`.
+- Current export: `hardware/exports/FH_Firmware.xsa` (`design_1.hwh`, `psu_init.c`).
+- Archived export: `hardware/exports/FH_Firmware_design_PZ.xsa` (same members).
+- Current FSBL source: `software/workspace/FH_TestPlatform/zynqmp_fsbl/psu_init.c`.
 - Vendor reference: PZ-ZU7EV-KFB-2025 / 10_PZ_ZCU_NET0 / Vitis /
   design_1_wrapper / zynqmp_fsbl / psu_init.c.
 

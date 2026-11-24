@@ -18,7 +18,7 @@ $env:FH_MONITOR_AMP = '1'
 ```
 
 This creates or uses `software/workspace_amp` and builds the capture ELF for
-A53 #3 at 0x40000000. Use its FH_Emulator_App.elf for the AMP boot image.
+A53 #3 at 0x40000000. Use its FH_TestApp.elf for the AMP boot image.
 Removing the environment variable selects the original standalone workspace.
 The GUI JTAG action resets the entire MPSoC and launches the standalone A53 #0
 application. Use SD boot for simultaneous Linux and Vitis. Sensor diagnostics
@@ -35,7 +35,7 @@ path of this checkout:
 ```sh
 petalinux-create project --template zynqMP --name fh-monitor
 cd fh-monitor
-petalinux-config --get-hw-description="$FH/hardware/exports/FH_Emulator.xsa"
+petalinux-config --get-hw-description="$FH/hardware/exports/FH_Firmware.xsa"
 python3 "$FH/software/monitor/install_recipe.py" "$PWD"
 ```
 
