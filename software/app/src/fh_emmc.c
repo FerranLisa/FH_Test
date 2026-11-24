@@ -4,17 +4,18 @@
 #include <string.h>
 
 /* SD0 is the only SD controller enabled in FH_Test and is wired to the eMMC. */
-static const char *const target[] = {"0:/BOOT.BIN", "0:/image.ub"};
-static const char *const stage[] = {"0:/FHUPDATE/BOOT.NEW", "0:/FHUPDATE/FIT.NEW"};
-static const char *const backup[] = {"0:/FHUPDATE/BOOT.OLD", "0:/FHUPDATE/FIT.OLD"};
-static const char *const absent[] = {"0:/FHUPDATE/BOOT.NIL", "0:/FHUPDATE/FIT.NIL"};
+static const char *const target[] = {"0:/BOOT.BIN", "0:/image.ub", "0:/boot.scr"};
+static const char *const stage[] = {"0:/FHUPDATE/BOOT.NEW", "0:/FHUPDATE/FIT.NEW", "0:/FHUPDATE/SCRIPT.NEW"};
+static const char *const backup[] = {"0:/FHUPDATE/BOOT.OLD", "0:/FHUPDATE/FIT.OLD", "0:/FHUPDATE/SCRIPT.OLD"};
+static const char *const absent[] = {"0:/FHUPDATE/BOOT.NIL", "0:/FHUPDATE/FIT.NIL", "0:/FHUPDATE/SCRIPT.NIL"};
 #define JOURNAL "0:/FHUPDATE/PENDING"
+enum { FILE_COUNT = sizeof target / sizeof target[0] };
 static FATFS fs;
 static FIL file;
 static int mounted, opened, index_now;
-static u32 size[2], remaining, read_crc[2], table[256];
+static u32 size[FILE_COUNT], remaining, read_crc[FILE_COUNT], table[256];
 static u8 buf[32768] __attribute__((aligned(64)));
-static u8 trailer[8];
+static u8 trailer[4 * FILE_COUNT];
 static unsigned used, trailer_used;
 
 static int remove_if_present(const char *path)
@@ -42,7 +43,7 @@ static int recover(void)
     FRESULT pending = probe(JOURNAL);
     if (pending == FR_NO_FILE) return 1;
     if (pending != FR_OK) return 0;
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < FILE_COUNT; ++i) {
         FRESULT old = probe(backup[i]), nil = probe(absent[i]);
         if (old != FR_OK && old != FR_NO_FILE) return 0;
         if (nil != FR_OK && nil != FR_NO_FILE) return 0;
@@ -69,7 +70,7 @@ static int open_stage(void)
     return opened;
 }
 
-const char *fh_emmc_begin(u32 boot, u32 fit)
+const char *fh_emmc_begin(u32 boot, u32 fit, u32 script)
 {
     mounted = 1;
     if (f_mount(&fs, "0:", 1) != FR_OK)
@@ -77,7 +78,7 @@ const char *fh_emmc_begin(u32 boot, u32 fit)
     FRESULT r = f_mkdir("0:/FHUPDATE");
     if ((r != FR_OK && r != FR_EXIST) || !recover())
         return "ERR cannot prepare eMMC update directory or recover previous update\n";
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < FILE_COUNT; ++i) {
         if (!remove_if_present(backup[i]) || !remove_if_present(absent[i]) ||
             !remove_if_present(stage[i])) return "ERR cannot clear eMMC staging files\n";
     }
@@ -88,6 +89,7 @@ const char *fh_emmc_begin(u32 boot, u32 fit)
     }
     size[0] = boot;
     size[1] = fit;
+    size[2] = script;
     index_now = trailer_used = 0;
     return open_stage() ? NULL : "ERR cannot open eMMC boot staging file\n";
 }
@@ -113,7 +115,7 @@ static int verify_stage(void)
 
 static const char *activate(void)
 {
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < FILE_COUNT; ++i) {
         for (int j = 0; j < 4; ++j)
             if (trailer[4*i+j] != (u8)(read_crc[i] >> (8*j)))
                 return "ERR eMMC readback CRC mismatch; original boot files retained\n";
@@ -122,14 +124,14 @@ static const char *activate(void)
             return "ERR cannot inspect original eMMC boot files\n";
     }
     if (!mark(JOURNAL)) return "ERR cannot create eMMC update journal\n";
-    for (int i = 1; i >= 0; --i) {
+    for (int i = FILE_COUNT - 1; i >= 0; --i) {
         FRESULT r = f_rename(target[i], backup[i]);
         if ((r != FR_OK && r != FR_NO_FILE) || f_rename(stage[i], target[i]) != FR_OK)
             return recover() ? "ERR update failed; original boot files restored\n" :
                                "ERR rollback incomplete; retry before reboot\n";
     }
     if (!remove_if_present(JOURNAL)) return "ERR commit incomplete; retry before reboot\n";
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < FILE_COUNT; ++i) {
         remove_if_present(backup[i]);
         remove_if_present(absent[i]);
     }
@@ -138,7 +140,7 @@ static const char *activate(void)
 
 const char *fh_emmc_receive(const u8 *data, unsigned bytes)
 {
-    while (bytes && index_now < 2) {
+    while (bytes && index_now < FILE_COUNT) {
         unsigned n = sizeof buf - used;
         if (n > bytes) n = bytes;
         if (n > remaining) n = remaining;
@@ -152,7 +154,7 @@ const char *fh_emmc_receive(const u8 *data, unsigned bytes)
         }
         if (!remaining) {
             if (!verify_stage()) return "ERR eMMC readback failed\n";
-            if (++index_now < 2 && !open_stage()) return "ERR cannot stage image.ub\n";
+            if (++index_now < FILE_COUNT && !open_stage()) return "ERR cannot open eMMC staging file\n";
         }
     }
     if (bytes > sizeof trailer - trailer_used) return "ERR unexpected eMMC payload length\n";

@@ -50,6 +50,28 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(w.request.call_count, 1)
         w.failed.emit.assert_called_once_with('Operation cancelled')
 
+    def test_install_waits_for_status_before_arming_and_skips_catalog(self):
+        w = self.worker()
+        w.operation = 'emmc'
+        w.armed = threading.Event()
+        w.request_arm = Mock()
+        w.request_arm.emit.side_effect = w.armed.set
+        w.request = Mock(side_effect=[TimeoutError(), {'emmc': '2'}, 'verified'])
+        with patch.object(w.cancelled, 'wait', return_value=False):
+            w.run()
+        w.request_arm.emit.assert_called_once()
+        w.result.emit.assert_called_once_with('verified')
+        self.assertEqual(w.request.call_count, 3)
+
+    def test_incompatible_firmware_is_rejected_before_arming(self):
+        w = self.worker()
+        w.operation = 'emmc'
+        w.request_arm = Mock()
+        w.request = Mock(return_value={'emmc': '1'})
+        w.run()
+        w.request_arm.emit.assert_not_called()
+        self.assertIn('three-file', w.failed.emit.call_args.args[0])
+
 if __name__ == '__main__':
     unittest.main()
 

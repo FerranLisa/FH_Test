@@ -32,6 +32,7 @@ from fh_emmc import boot_files, install as install_emmc
 class Worker(QtCore.QThread):
     result = QtCore.pyqtSignal(object)
     failed = QtCore.pyqtSignal(str)
+    request_arm = QtCore.pyqtSignal()
     progress = QtCore.pyqtSignal(int, int)
 
     def __init__(self, operation, host, port, row=None, folder=None, files=None, route=None):
@@ -69,31 +70,38 @@ class Worker(QtCore.QThread):
             finally:
                 self.sock = None
 
+    def wait_for_ethernet(self):
+        # Only retry the read-only readiness probe, never image downloads.
+        deadline = time.monotonic() + 45
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('Ethernet not ready after 45 seconds; check UART link status and use Attach to retry.')
+            try:
+                status = self.request(status_request, min(3, remaining),
+                                      min(3, remaining), deadline=deadline)
+                return status
+            except (OSError, EOFError) as exc:
+                if self.cancelled.is_set():
+                    raise RuntimeError('Operation cancelled') from exc
+                if time.monotonic() >= deadline:
+                    raise TimeoutError('Ethernet not ready after 45 seconds; check UART link status and use Attach to retry.') from exc
+                self.cancelled.wait(min(0.5, max(0, deadline - time.monotonic())))
+
     def run(self):
         try:
             if self.operation == 'emmc':
+                status = self.wait_for_ethernet()
+                if status.get('emmc') != '2':
+                    raise RuntimeError('Load standalone firmware with three-file eMMC support.')
+                self.request_arm.emit()
                 if not self.armed.wait(5):
                     raise RuntimeError('Board did not authorize eMMC upload. Load the updated standalone firmware and enter Ethernet export.')
                 result = self.request(lambda sock: install_emmc(
                     sock, self.folder, self.token, self.cancelled.is_set, self.progress.emit),
                     response_timeout=240)
             elif self.operation == 'catalog':
-                # Only retry the read-only readiness probe, never image downloads.
-                deadline = time.monotonic() + 45
-                while True:
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        raise TimeoutError('Ethernet not ready after 45 seconds; check UART link status and use Attach to retry.')
-                    try:
-                        status = self.request(status_request, min(3, remaining),
-                                              min(3, remaining), deadline=deadline)
-                        break
-                    except (OSError, EOFError) as exc:
-                        if self.cancelled.is_set():
-                            raise RuntimeError('Operation cancelled') from exc
-                        if time.monotonic() >= deadline:
-                            raise TimeoutError('Ethernet not ready after 45 seconds; check UART link status and use Attach to retry.') from exc
-                        self.cancelled.wait(min(0.5, max(0, deadline - time.monotonic())))
+                status = self.wait_for_ethernet()
                 rows = []
                 if status['ready'] == '1':
                     rows = self.request(lambda sock: list_request(sock, status.get('timestamps') == '1'))
@@ -147,7 +155,6 @@ class FHTest(QtWidgets.QMainWindow):
         self.generation = 0
         self.rows, self.local_files, self.arrays = [], {}, []
         self.all_rows = []
-        self.emmc_available = False
         self.router_available = False
         self.pending_capture = False
         self.deadline = None
@@ -240,7 +247,7 @@ class FHTest(QtWidgets.QMainWindow):
         self.program_button.setToolTip('Resets the board, loads BIT and FSBL, downloads and runs the A53 ELF. Clears retained frames.')
         self.program_files = self.button(connections, 'JTAG files...', self.configure_program)
         self.emmc_button = self.button(connections, 'Install PetaLinux on eMMC...', self.program_emmc)
-        self.emmc_button.setToolTip('Connect UART and enter Ethernet export to install BOOT.BIN and image.ub.')
+        self.emmc_button.setToolTip('Connect UART. Starts Ethernet export if needed to install BOOT.BIN, image.ub and boot.scr.')
         connections.addStretch()
 
         capture = QtWidgets.QHBoxLayout()
@@ -514,6 +521,8 @@ class FHTest(QtWidgets.QMainWindow):
                 self.cancel_worker()
                 self.notice('Board restarted; previous remote catalog discarded.')
             elif event == 'failure':
+                if self.worker and self.worker.operation == 'emmc':
+                    self.cancel_worker()
                 self.pending_capture = False
                 self.notice(value)
             elif event == 'verified':
@@ -553,7 +562,6 @@ class FHTest(QtWidgets.QMainWindow):
 
     def invalidate_catalog(self):
         self.generation += 1
-        self.emmc_available = False
         self.rows, self.local_files = [], {}
         self.all_rows = []
         self.router_available = False
@@ -675,7 +683,6 @@ class FHTest(QtWidgets.QMainWindow):
             self.sequence.reset('export')
             self.deadline = None
             self.all_rows = result['rows']
-            self.emmc_available = result['status'].get('emmc') == '1'
             self.router_available = result['status'].get('router') == '1'
             self.rows = [r for r in self.all_rows if self.router_mode.currentIndex() != 1 or r['type'] == 'FULL']
             self.local_files = {}
@@ -865,7 +872,7 @@ class FHTest(QtWidgets.QMainWindow):
 
     def program_emmc(self):
         folder = QtWidgets.QFileDialog.getExistingDirectory(
-            self, 'Select folder containing BOOT.BIN and image.ub',
+            self, 'Select folder containing BOOT.BIN, image.ub and boot.scr',
             str(self.settings.value('emmc_folder', '')))
         if not folder:
             return
@@ -889,8 +896,19 @@ class FHTest(QtWidgets.QMainWindow):
         worker.token = uuid.uuid4().hex
         worker.armed = threading.Event()
         worker.arm_reply = b''
-        if self.send(b'!' + worker.token.encode('ascii') + b'\n'):
-            self.run_worker(worker)
+        if self.worker or not self.serial.isOpen() or self.sequence.state not in ('menu', 'export'):
+            self.notice('Board state changed. Return to the menu and retry.')
+            return
+        if self.sequence.state == 'menu':
+            self.enter_export()
+            if self.sequence.state != 'entering_export':
+                return
+        worker.request_arm.connect(lambda: self.arm_emmc(worker))
+        self.run_worker(worker)
+
+    def arm_emmc(self, worker):
+        if self.worker is worker and not worker.cancelled.is_set() and self.serial.isOpen():
+            self.send(b'!' + worker.token.encode('ascii') + b'\n')
 
     def program_board(self):
         if self.worker or self.sequence.state not in ('unknown', 'menu', 'export'):
@@ -918,7 +936,7 @@ class FHTest(QtWidgets.QMainWindow):
         state, connected, idle = self.sequence.state, self.serial.isOpen(), self.worker is None
         self.program_button.setEnabled(idle and state in ('unknown', 'menu', 'export'))
         self.program_files.setEnabled(idle)
-        self.emmc_button.setEnabled(idle and connected and self.emmc_available and state == 'export'
+        self.emmc_button.setEnabled(idle and connected and state in ('menu', 'export')
                                     and bool(self.host.text().strip()))
         self.connect_button.setEnabled(idle)
         self.connect_button.setText('Disconnect' if connected else 'Connect')

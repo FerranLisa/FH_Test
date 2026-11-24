@@ -57,7 +57,8 @@
       "monitor_b": "",
       "monitor_b_cfg": "",
       "monitor_b_info": "",
-      "monitor_b_dma": ""
+      "monitor_b_dma": "",
+      "fh_pl_irq_concat": ""
     },
     "interface_ports": {
       "GMX_A_CTRL": {
@@ -3406,7 +3407,7 @@
             "value": "0"
           },
           "PSU__USE__IRQ0": {
-            "value": "0"
+            "value": "1"
           },
           "PSU__USE__IRQ1": {
             "value": "0"
@@ -7278,6 +7279,19 @@
             }
           }
         }
+      },
+      "fh_pl_irq_concat": {
+        "vlnv": "xilinx.com:ip:xlconcat:2.1",
+        "ip_revision": "7",
+        "xci_name": "design_1_fh_pl_irq_concat_0",
+        "xci_path": "ip\\design_1_fh_pl_irq_concat_0\\design_1_fh_pl_irq_concat_0.xci",
+        "inst_hier_path": "fh_pl_irq_concat",
+        "has_run_ip_tcl": "true",
+        "parameters": {
+          "NUM_PORTS": {
+            "value": "8"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -7617,6 +7631,18 @@
           "i2c_emio_iobuf_0/sda_io"
         ]
       },
+      "axi_iic_gmax_a_iic2intc_irpt": {
+        "ports": [
+          "axi_iic_gmax_a/iic2intc_irpt",
+          "fh_pl_irq_concat/In0"
+        ]
+      },
+      "axi_iic_gmax_b_iic2intc_irpt": {
+        "ports": [
+          "axi_iic_gmax_b/iic2intc_irpt",
+          "fh_pl_irq_concat/In1"
+        ]
+      },
       "capture_b_rx_clk_1": {
         "ports": [
           "capture_b_rx_clk",
@@ -7673,6 +7699,18 @@
           "monitor_a/lval"
         ]
       },
+      "fh_export_dma_mm2s_introut": {
+        "ports": [
+          "fh_export_dma/mm2s_introut",
+          "fh_pl_irq_concat/In4"
+        ]
+      },
+      "fh_export_dma_s2mm_introut": {
+        "ports": [
+          "fh_export_dma/s2mm_introut",
+          "fh_pl_irq_concat/In5"
+        ]
+      },
       "fh_pcie_refclk_monit_0_clkmon_count_10ms": {
         "ports": [
           "fh_pcie_refclk_monit_0/clkmon_count_10ms",
@@ -7683,6 +7721,12 @@
         "ports": [
           "fh_pcie_refclk_monit_0/clkmon_status",
           "axi_gpio_clkmon/gpio2_io_i"
+        ]
+      },
+      "fh_pl_irq_concat_dout": {
+        "ports": [
+          "fh_pl_irq_concat/dout",
+          "zynq_ultra_ps_e_0/pl_ps_irq0"
         ]
       },
       "gmax_capture_b_status": {
@@ -7701,6 +7745,18 @@
         "ports": [
           "gmax_capture_ctrl/gpio_io_o",
           "gmax_capture/control"
+        ]
+      },
+      "gmax_capture_dma_b_s2mm_introut": {
+        "ports": [
+          "gmax_capture_dma_b/s2mm_introut",
+          "fh_pl_irq_concat/In3"
+        ]
+      },
+      "gmax_capture_dma_s2mm_introut": {
+        "ports": [
+          "gmax_capture_dma/s2mm_introut",
+          "fh_pl_irq_concat/In2"
         ]
       },
       "gmax_capture_status": {
@@ -7874,6 +7930,12 @@
           "monitor_a/cfg_xy"
         ]
       },
+      "monitor_a_dma_s2mm_introut": {
+        "ports": [
+          "monitor_a_dma/s2mm_introut",
+          "fh_pl_irq_concat/In6"
+        ]
+      },
       "monitor_a_status": {
         "ports": [
           "monitor_a/status",
@@ -7896,6 +7958,12 @@
         "ports": [
           "monitor_b_cfg/gpio_io_o",
           "monitor_b/cfg_xy"
+        ]
+      },
+      "monitor_b_dma_s2mm_introut": {
+        "ports": [
+          "monitor_b_dma/s2mm_introut",
+          "fh_pl_irq_concat/In7"
         ]
       },
       "monitor_b_status": {

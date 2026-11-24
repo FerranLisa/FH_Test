@@ -2,6 +2,13 @@
 
 Two physical GMAX3412 receivers on FH_Carrier. Startup reports independent initialization and 16-lane training results. UART 8 and 9 open sensor diagnostics. Enter C1 or C2 with an optional exposure in microseconds, followed by Enter (for example C2:2000). The default is 1000 us. U:3000 sets a 3000 us exposure on both sensors for this run and asks for R and duration. Plain U also prompts for exposure (default 1000 us). U arms both receivers and strobes both TEXP1 lines together. R selects how many central 4096 × 1024 crops to retain between full frames. Both sensors read full frames. Busy 4 ms timer slots are skipped. N exports retained images; Ethernet sensor indices are 0 and 1.
 
+## Changes since V35.2
+
+- After JTAG programming, select **Install PetaLinux on eMMC...** from the main menu in FH_Test.py. The application starts the Ethernet server if needed and checks that the firmware supports the three-file update. It uploads `BOOT.BIN`, `image.ub` and the U-Boot script `boot.scr` together. The firmware verifies all three files on the eMMC before replacing the boot files.
+- Ethernet startup reuses an RTL8211F link already negotiated at 1 Gb/s full duplex with the required advertisement. When negotiation is needed, the firmware polls every 50 ms with a 15-second timeout.
+- The Vivado block design routes eight PL interrupts to `pl_ps_irq0`. Bits 0–1 carry the sensor A/B I²C interrupts, bits 2–3 the capture A/B DMA interrupts, bits 4–5 the export DMA MM2S/S2MM interrupts, and bits 6–7 the monitor A/B DMA interrupts.
+- After a successful Vivado and Vitis build, `scripts/build_all.ps1` copies `FH_Firmware.xsa` to `/home/ferran/FH_Carrier_Linux/HW/` in WSL Ubuntu-22.04. It verifies the temporary copy against the exported XSA using SHA-256 before replacing the destination file.
+
 ## Changes in V35.2
 
 - Vivado builds and exports FH_Firmware. Vitis builds FH_TestPlatform and FH_TestApp. The build scripts and desktop JTAG defaults use these names.
@@ -203,10 +210,10 @@ workspace before running; the script never deletes workspace locks.
 
 Build the standalone Vitis platform and application with `scripts/software.ps1 -Stage BuildPlatform` followed by `scripts/software.ps1 -Stage BuildApp`. Load the resulting firmware over JTAG. The standalone platform includes the writable XilFFS library for the SOM's SD0 eMMC.
 
-1. In FH_Test.py, connect UART, stop capture and select **Enter export**. An empty frame table is fine.
-2. Select **Install PetaLinux on eMMC...** and choose the PC folder containing `BOOT.BIN` and `image.ub`. Confirm the destination. UART authorizes one update, and the configured Ethernet TCP endpoint carries both files.
-3. Wait for **Verified BOOT.BIN and image.ub on eMMC.** The firmware stages both files on the existing FAT boot volume, rereads them and checks their sizes and CRC32 values before replacing the boot files. Allow enough free space for both new files. The updater reserves the `FHUPDATE` directory for staging and rollback. After an interrupted installation, rerun it from the standalone firmware before booting from eMMC.
-4. Select the board's eMMC boot mode and power-cycle. The PetaLinux build must be configured to load this FIT and supply its root filesystem (embedded in the image or already provisioned). This operation updates the two named files on an existing FAT volume.
+1. In FH_Test.py, connect UART and wait for the main menu after JTAG programming. Stop any active capture.
+2. Select **Install PetaLinux on eMMC...** and choose the PC folder containing `BOOT.BIN`, `image.ub` and `boot.scr`. Confirm the destination. FH_Test starts Ethernet export from the main menu or reuses the running server. UART authorizes one update, and the configured Ethernet TCP endpoint carries all three files.
+3. Wait for **Verified BOOT.BIN, image.ub and boot.scr on eMMC.** The firmware stages all three files on the existing FAT boot volume, rereads them and checks their sizes and CRC32 values before replacing the boot files. Allow enough free space for all three new files. The updater reserves the `FHUPDATE` directory for staging and rollback. After an interrupted installation, rerun it from the standalone firmware before booting from eMMC.
+4. Select the board's eMMC boot mode and power-cycle. The PetaLinux build must be configured to load this FIT and supply its root filesystem (embedded in the image or already provisioned). This operation updates the three named files on an existing FAT volume.
 
 ## Console and board checks
 

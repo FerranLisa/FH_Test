@@ -4,7 +4,7 @@ import zlib
 
 
 def boot_files(folder):
-    files = [Path(folder) / name for name in ('BOOT.BIN', 'image.ub')]
+    files = [Path(folder) / name for name in ('BOOT.BIN', 'image.ub', 'boot.scr')]
     for path in files:
         if not path.is_file() or not 0 < path.stat().st_size <= 0xffffffff:
             raise ValueError(f'Missing, empty or too large for FAT: {path}')
@@ -22,7 +22,7 @@ def install(sock, folder, token, cancelled, progress):
             if line != expected:
                 raise RuntimeError(line or 'Board disconnected before confirming the update')
 
-        sock.sendall(f'EMMC {token} {sizes[0]} {sizes[1]}\n'.encode('ascii'))
+        sock.sendall(f'EMMC {token} {sizes[0]} {sizes[1]} {sizes[2]}\n'.encode('ascii'))
         expect('READY EMMC')
         checksums = []
         for path, size in zip(paths, sizes):
@@ -45,4 +45,4 @@ def install(sock, folder, token, cancelled, progress):
             checksums.append(crc.to_bytes(4, 'little'))
         sock.sendall(b''.join(checksums))
         expect('OK EMMC')
-    return 'Verified BOOT.BIN and image.ub on eMMC.'
+    return 'Verified BOOT.BIN, image.ub and boot.scr on eMMC.'

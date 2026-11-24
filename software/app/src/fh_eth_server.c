@@ -449,16 +449,16 @@ static void parse_command(void)
     }
 #ifndef FH_MONITOR_AMP
     if (parsed && !strcmp(tokens[0], "EMMC")) {
-        unsigned long boot, fit;
-        if (parsed != 4 || !parse_number(tokens[2], &boot) || !boot ||
-            !parse_number(tokens[3], &fit) || !fit) {
+        unsigned long boot, fit, script;
+        if (parsed != 5 || !parse_number(tokens[2], &boot) || !boot ||
+            !parse_number(tokens[3], &fit) || !fit || !parse_number(tokens[4], &script) || !script) {
             set_reply("ERR invalid eMMC request\n"); return;
         }
         if (monotonic_us() >= TokenDeadline || strcmp(tokens[1], UpdateToken)) {
             set_reply("ERR eMMC upload requires local UART authorization\n"); return;
         }
         TokenDeadline = 0;
-        const char *error = fh_emmc_begin((u32)boot, (u32)fit);
+        const char *error = fh_emmc_begin((u32)boot, (u32)fit, (u32)script);
         if (error || tcp_write(Conn.pcb, "READY EMMC\n", 11, TCP_WRITE_FLAG_COPY) != ERR_OK) {
             fh_emmc_close();
             set_reply(error ? error : "ERR cannot start upload\n"); return;
@@ -499,7 +499,7 @@ static void parse_command(void)
         snprintf(Conn.text,sizeof Conn.text,
                  "STATUS protocol=1 timestamps=1 mode=stopped-only "
 #ifndef FH_MONITOR_AMP
-                 "emmc=1 "
+                 "emmc=2 "
 #endif
                  "entries=%lu ready=%u capture=%u router=%u routed_protocol=2 release=" FH_RELEASE " release_state=" FH_RELEASE_STATE " %s\n",
                  (unsigned long)fh_frame_count(), (unsigned)fh_frame_is_ready(),

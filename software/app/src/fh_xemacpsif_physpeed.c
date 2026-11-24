@@ -805,7 +805,27 @@ static u32_t get_Realtek_phy_speed(XEmacPs *xemacpsp, u32_t phy_addr)
 	u32_t temp_speed;
 	unsigned long reset_start=0;
 
-	xil_printf("Start PHY autonegotiation \r\n");
+	/* Preserve an already negotiated RTL8211F link with our advertisement. */
+    u16_t id2, adv, gig, bmcr, bmsr, physr;
+    if (!FhPhyObserveTrace &&
+        fh_realtek_read(xemacpsp, phy_addr, PHY_IDENTIFIER_2_REG, &id2) == XST_SUCCESS &&
+        (id2 & 0xfff0U) == 0xc910U &&
+        fh_realtek_read(xemacpsp, phy_addr, 4, &adv) == XST_SUCCESS &&
+        !(adv & 0x03e0U) && (adv & 0x0c00U) == 0x0c00U &&
+        fh_realtek_read(xemacpsp, phy_addr, 9, &gig) == XST_SUCCESS &&
+        (gig & 0x0300U) == 0x0200U &&
+        fh_realtek_read(xemacpsp, phy_addr, 0, &bmcr) == XST_SUCCESS &&
+        (bmcr & 0xde00U) == 0x1000U &&
+        fh_realtek_read(xemacpsp, phy_addr, 1, &bmsr) == XST_SUCCESS &&
+        fh_realtek_read(xemacpsp, phy_addr, 1, &bmsr) == XST_SUCCESS &&
+        bmsr != 0xffffU && (bmsr & 0x24U) == 0x24U &&
+        fh_realtek_read(xemacpsp, phy_addr, 0x1a, &physr) == XST_SUCCESS &&
+        (physr & 0x003cU) == 0x002cU) {
+        xil_printf("RTL8211F gigabit link already negotiated\r\n");
+        goto resolved;
+    }
+
+    xil_printf("Start PHY autonegotiation \r\n");
 
 	fh_realtek_read(xemacpsp, phy_addr, IEEE_AUTONEGO_ADVERTISE_REG, &control);
 	control |= IEEE_ASYMMETRIC_PAUSE_MASK;
@@ -864,12 +884,13 @@ static u32_t get_Realtek_phy_speed(XEmacPs *xemacpsp, u32_t phy_addr)
 			return XST_FAILURE;
 		}
 		if (status & IEEE_STAT_AUTONEGOTIATE_COMPLETE) break;
-		if (timeout_counter >= 15U) {
+		if (timeout_counter >= 300U) {
 			xil_printf("PHY autonegotiation timeout after 15 seconds: BMSR=%04x\r\n", (unsigned)status);
 			return XST_FAILURE;
 		}
-		sleep(1);
+		usleep(50000U);
 	}
+resolved:
 	xil_printf("autonegotiation complete \r\n");
 	/* FH_KFB_RTL8211F_STATUS: RTL8211F uses PHYSR 0x1a, not 0x11. */
 	{

@@ -1,0 +1,203 @@
+{
+   "ActiveEmotionalView":"Default View",
+   "Default View_ScaleFactor":"0.717936",
+   "Default View_TopLeft":"2067,1400",
+   "ExpandedHierarchyInLayout":"",
+   "guistr":"# # String gsaved with Nlview 7.8.0 2024-04-26 e1825d835c VDI=44 GEI=38 GUI=JA:21.0
+#  -string -flagsOSRD
+preplace port GMX_A_CTRL -pg 1 -lvl 14 -x 5750 -y 1880 -defaultsOSRD
+preplace port GMX_A_STATUS -pg 1 -lvl 14 -x 5750 -y 1910 -defaultsOSRD
+preplace port GMX_A_I2C -pg 1 -lvl 14 -x 5750 -y 1580 -defaultsOSRD
+preplace port c0_ddr4 -pg 1 -lvl 14 -x 5750 -y 920 -defaultsOSRD
+preplace port c0_sys_clk -pg 1 -lvl 0 -x 0 -y 870 -defaultsOSRD
+preplace port GMX_B_CTRL -pg 1 -lvl 14 -x 5750 -y 1740 -defaultsOSRD
+preplace port GMX_B_STATUS -pg 1 -lvl 14 -x 5750 -y 1770 -defaultsOSRD
+preplace port GMX_B_I2C -pg 1 -lvl 14 -x 5750 -y 1440 -defaultsOSRD
+preplace port port-id_PAC1944_I2C_scl_io -pg 1 -lvl 14 -x 5750 -y 1080 -defaultsOSRD
+preplace port port-id_PAC1944_I2C_sda_io -pg 1 -lvl 14 -x 5750 -y 1680 -defaultsOSRD
+preplace port port-id_M2_PCIE_REFCLK_SOM_P_0 -pg 1 -lvl 0 -x 0 -y 1970 -defaultsOSRD
+preplace port port-id_M2_PCIE_REFCLK_SOM_N_0 -pg 1 -lvl 0 -x 0 -y 2000 -defaultsOSRD
+preplace port port-id_capture_rx_clk -pg 1 -lvl 0 -x 0 -y 650 -defaultsOSRD
+preplace port port-id_capture_rx_fval -pg 1 -lvl 0 -x 0 -y 680 -defaultsOSRD
+preplace port port-id_capture_rx_lval -pg 1 -lvl 0 -x 0 -y 710 -defaultsOSRD
+preplace port port-id_capture_b_rx_clk -pg 1 -lvl 0 -x 0 -y 1490 -defaultsOSRD
+preplace port port-id_capture_b_rx_fval -pg 1 -lvl 0 -x 0 -y 1520 -defaultsOSRD
+preplace port port-id_capture_b_rx_lval -pg 1 -lvl 0 -x 0 -y 1550 -defaultsOSRD
+preplace port port-id_stereo_texp -pg 1 -lvl 14 -x 5750 -y 700 -defaultsOSRD
+preplace portBus capture_rx_data -pg 1 -lvl 0 -x 0 -y 1460 -defaultsOSRD
+preplace portBus capture_b_rx_data -pg 1 -lvl 0 -x 0 -y 1580 -defaultsOSRD
+preplace portBus texp_drive -pg 1 -lvl 14 -x 5750 -y 730 -defaultsOSRD
+preplace portBus texp_pins -pg 1 -lvl 0 -x 0 -y 2060 -defaultsOSRD
+preplace inst zynq_ultra_ps_e_0 -pg 1 -lvl 8 -x 3110 -y 1710 -defaultsOSRD
+preplace inst ila_0 -pg 1 -lvl 12 -x 5270 -y 1240 -defaultsOSRD
+preplace inst i2c_emio_iobuf_0 -pg 1 -lvl 11 -x 4760 -y 1560 -defaultsOSRD
+preplace inst fh_pcie_refclk_monit_0 -pg 1 -lvl 3 -x 840 -y 1970 -defaultsOSRD
+preplace inst proc_sys_reset_0 -pg 1 -lvl 2 -x 430 -y 1880 -defaultsOSRD
+preplace inst axi_gpio_clkmon -pg 1 -lvl 10 -x 4340 -y 1800 -defaultsOSRD
+preplace inst axi_smc -pg 1 -lvl 9 -x 3740 -y 1050 -defaultsOSRD
+preplace inst xlconstant_0 -pg 1 -lvl 1 -x 130 -y 1800 -defaultsOSRD
+preplace inst xlconstant_1 -pg 1 -lvl 1 -x 130 -y 1900 -defaultsOSRD
+preplace inst system_ila_0 -pg 1 -lvl 10 -x 4340 -y 1990 -defaultsOSRD
+preplace inst axi_gpio_gmax_a_ctrl -pg 1 -lvl 12 -x 5270 -y 1900 -defaultsOSRD
+preplace inst axi_iic_gmax_a -pg 1 -lvl 12 -x 5270 -y 1600 -defaultsOSRD
+preplace inst gmax_emu_clock -pg 1 -lvl 3 -x 840 -y 1750 -defaultsOSRD
+preplace inst gmax_emu_reset -pg 1 -lvl 4 -x 1240 -y 1720 -defaultsOSRD
+preplace inst gmax_emu_zero -pg 1 -lvl 3 -x 840 -y 1640 -defaultsOSRD
+preplace inst gmax_capture -pg 1 -lvl 5 -x 1710 -y 1050 -defaultsOSRD
+preplace inst gmax_capture_ctrl -pg 1 -lvl 10 -x 4340 -y 80 -defaultsOSRD
+preplace inst gmax_capture_dma -pg 1 -lvl 6 -x 2200 -y 1000 -defaultsOSRD
+preplace inst gmax_ddr_smc -pg 1 -lvl 7 -x 2570 -y 1380 -defaultsOSRD
+preplace inst gmax_scheduler -pg 1 -lvl 8 -x 3110 -y 790 -defaultsOSRD
+preplace inst gmax_scheduler_ctrl -pg 1 -lvl 10 -x 4340 -y 480 -defaultsOSRD
+preplace inst pl_ddr4 -pg 1 -lvl 12 -x 5270 -y 970 -defaultsOSRD
+preplace inst pl_ddr_reset -pg 1 -lvl 10 -x 4340 -y 650 -defaultsOSRD
+preplace inst pl_ddr_smc -pg 1 -lvl 11 -x 4760 -y 850 -defaultsOSRD
+preplace inst gmax_pl_ring -pg 1 -lvl 8 -x 3110 -y 620 -defaultsOSRD
+preplace inst gmax_pl_ring_ctrl -pg 1 -lvl 10 -x 4340 -y 260 -defaultsOSRD
+preplace inst pl_ddr_dci_reset -pg 1 -lvl 11 -x 4760 -y 1280 -defaultsOSRD
+preplace inst pl_ddr_reset_inactive -pg 1 -lvl 9 -x 3740 -y 640 -defaultsOSRD
+preplace inst gmax_dual_ring -pg 1 -lvl 8 -x 3110 -y 1000 -defaultsOSRD
+preplace inst gmax_capture_b -pg 1 -lvl 9 -x 3740 -y 1470 -defaultsOSRD
+preplace inst gmax_capture_dma_b -pg 1 -lvl 10 -x 4340 -y 1110 -defaultsOSRD
+preplace inst gmax_capture_ctrl_b -pg 1 -lvl 10 -x 4340 -y 1340 -defaultsOSRD
+preplace inst gmax_dual_ring_ctrl -pg 1 -lvl 10 -x 4340 -y 920 -defaultsOSRD
+preplace inst gmax_zero_pixels -pg 1 -lvl 4 -x 1240 -y 1440 -defaultsOSRD
+preplace inst fh_router_0 -pg 1 -lvl 5 -x 1710 -y 480 -defaultsOSRD
+preplace inst fh_export_dma -pg 1 -lvl 6 -x 2200 -y 420 -defaultsOSRD
+preplace inst axi_gpio_gmax_b_ctrl -pg 1 -lvl 12 -x 5270 -y 1760 -defaultsOSRD
+preplace inst axi_iic_gmax_b -pg 1 -lvl 12 -x 5270 -y 1460 -defaultsOSRD
+preplace inst monitor_ctrl -pg 1 -lvl 5 -x 1710 -y 1400 -defaultsOSRD
+preplace inst monitor_a -pg 1 -lvl 5 -x 1710 -y 720 -defaultsOSRD
+preplace inst monitor_a_cfg -pg 1 -lvl 6 -x 2200 -y 190 -defaultsOSRD
+preplace inst monitor_a_info -pg 1 -lvl 6 -x 2200 -y 760 -defaultsOSRD
+preplace inst monitor_a_dma -pg 1 -lvl 6 -x 2200 -y 1180 -defaultsOSRD
+preplace inst monitor_b -pg 1 -lvl 5 -x 1710 -y 1710 -defaultsOSRD
+preplace inst monitor_b_cfg -pg 1 -lvl 6 -x 2200 -y 1820 -defaultsOSRD
+preplace inst monitor_b_info -pg 1 -lvl 6 -x 2200 -y 1640 -defaultsOSRD
+preplace inst monitor_b_dma -pg 1 -lvl 6 -x 2200 -y 1410 -defaultsOSRD
+preplace inst fh_pl_irq_concat -pg 1 -lvl 13 -x 5620 -y 1050 -defaultsOSRD
+preplace netloc M2_PCIE_REFCLK_SOM_N_0_1 1 0 3 NJ 2000 NJ 2000 NJ
+preplace netloc M2_PCIE_REFCLK_SOM_P_0_1 1 0 3 NJ 1970 230J 2010 640J
+preplace netloc Net 1 8 4 N 1640 3960J 1470 NJ 1470 5030
+preplace netloc Net1 1 8 4 N 1700 4080J 1440 NJ 1440 5050
+preplace netloc Net2 1 11 3 5000J 1080 5480J 1180 5730
+preplace netloc Net3 1 11 3 5010J 1680 NJ 1680 N
+preplace netloc capture_b_rx_clk_1 1 0 9 NJ 1490 NJ 1490 NJ 1490 1040J 1500 1440 1510 NJ 1510 NJ 1510 NJ 1510 NJ
+preplace netloc capture_b_rx_data_1 1 0 9 NJ 1580 NJ 1580 NJ 1580 NJ 1580 1490 1520 NJ 1520 NJ 1520 NJ 1520 3490J
+preplace netloc capture_b_rx_fval_1 1 0 9 NJ 1520 NJ 1520 NJ 1520 NJ 1520 1410 1530 NJ 1530 NJ 1530 NJ 1530 NJ
+preplace netloc capture_b_rx_lval_1 1 0 9 NJ 1550 NJ 1550 NJ 1550 NJ 1550 1450 1550 NJ 1550 NJ 1550 2760J 1540 3480J
+preplace netloc capture_rx_clk_1 1 0 5 NJ 650 NJ 650 NJ 650 NJ 650 1410
+preplace netloc capture_rx_data_1 1 0 5 30J 1380 NJ 1380 NJ 1380 NJ 1380 1450
+preplace netloc capture_rx_fval_1 1 0 5 NJ 680 NJ 680 NJ 680 NJ 680 1470
+preplace netloc capture_rx_lval_1 1 0 5 NJ 710 NJ 710 NJ 710 NJ 710 1490
+preplace netloc fh_pcie_refclk_monit_0_clkmon_count_10ms 1 3 8 1040 1930 NJ 1930 NJ 1930 NJ 1930 NJ 1930 3580J 1710 NJ 1710 4520
+preplace netloc fh_pcie_refclk_monit_0_clkmon_status 1 3 8 NJ 1980 1420J 1970 NJ 1970 NJ 1970 NJ 1970 3610J 1750 4170J 1700 4530
+preplace netloc gmax_capture_b_status 1 9 2 NJ 1480 4510
+preplace netloc gmax_capture_ctrl_b_gpio_io_o 1 8 3 3610 1630 NJ 1630 4530
+preplace netloc gmax_capture_ctrl_gpio_io_o 1 4 7 1520 90 NJ 90 NJ 90 NJ 90 NJ 90 4160J 170 4520
+preplace netloc gmax_capture_status 1 5 6 2010 1280 2410J 1270 2700J 1280 NJ 1280 4050J 1210 4540
+preplace netloc gmax_dual_ring_ctrl_gpio_io_o 1 7 4 2760 710 NJ 710 3960J 770 4510
+preplace netloc gmax_dual_ring_monitor_frame_id 1 4 5 1510 280 NJ 280 NJ 280 NJ 280 3450
+preplace netloc gmax_dual_ring_monitor_full_trigger 1 4 5 1530 880 NJ 880 NJ 880 2700J 510 3440
+preplace netloc gmax_dual_ring_status 1 8 3 3540J 1270 4060J 1220 4510
+preplace netloc gmax_emu_clock_clk_out1 1 3 8 1040 1620 1460 390 1930 1310 2380 1500 2740 1120 3600 1290 4130 1430 4570
+preplace netloc gmax_emu_clock_locked 1 3 1 N 1760
+preplace netloc gmax_emu_reset_peripheral_aresetn 1 4 7 1430 380 2000 1540 2440 1540 2720 1310 3570 1310 4150 1250 4520J
+preplace netloc gmax_emu_zero_dout 1 3 7 1060 1130 1420 570 NJ 570 NJ 570 2740J 530 3550 700 3920J
+preplace netloc gmax_pl_ring_ctrl_gpio_io_o 1 7 4 2760 370 NJ 370 NJ 370 4530
+preplace netloc gmax_pl_ring_status 1 8 3 3470J 380 NJ 380 4520
+preplace netloc gmax_scheduler_ctrl_gpio_io_o 1 7 4 2780 390 NJ 390 NJ 390 4520
+preplace netloc gmax_scheduler_status 1 8 3 NJ 800 3920J 790 4520
+preplace netloc gmax_zero_pixels_dout 1 4 5 1480 1290 NJ 1290 2400J 1260 NJ 1260 3510J
+preplace netloc monitor_a_captured_id 1 5 2 1960 660 2380
+preplace netloc monitor_a_cfg_gpio2_io_o 1 4 3 1540 290 NJ 290 2370
+preplace netloc monitor_a_cfg_gpio_io_o 1 4 3 1550 100 NJ 100 2370
+preplace netloc monitor_a_status 1 5 2 1970 670 2370
+preplace netloc monitor_b_captured_id 1 5 2 1890J 1910 2360
+preplace netloc monitor_b_cfg_gpio2_io_o 1 4 3 1540 1990 NJ 1990 2370
+preplace netloc monitor_b_cfg_gpio_io_o 1 4 3 1560 1980 NJ 1980 2380
+preplace netloc monitor_b_status 1 5 2 1900J 1730 2370
+preplace netloc pl_ddr4_c0_ddr4_ui_clk 1 9 4 4170 780 4610 1000 4890J 830 5440
+preplace netloc pl_ddr4_c0_ddr4_ui_clk_sync_rst 1 9 4 4160 1010 NJ 1010 4950J 860 5430
+preplace netloc pl_ddr4_c0_init_calib_complete 1 7 6 2770 520 NJ 520 3970 750 4610J 730 NJ 730 5450
+preplace netloc pl_ddr_dci_reset_sys_rst 1 11 1 4960 1000n
+preplace netloc pl_ddr_reset_inactive_dout 1 9 1 3960J 640n
+preplace netloc pl_ddr_reset_peripheral_aresetn 1 10 2 4620 990 4960
+preplace netloc proc_sys_reset_0_interconnect_aresetn 1 2 10 630J 1880 1040J 1910 NJ 1910 1860J 1940 NJ 1940 NJ 1940 NJ 1940 4110 1460 4580J 1170 4990
+preplace netloc proc_sys_reset_0_peripheral_aresetn 1 2 10 640 1850 1060J 1900 NJ 1900 1870J 1950 NJ 1950 NJ 1950 3560 1690 NJ 1690 NJ 1690 5100
+preplace netloc proc_sys_reset_0_peripheral_reset 1 2 10 600J 2060 NJ 2060 NJ 2060 NJ 2060 NJ 2060 NJ 2060 3600J 1730 4140J 1680 NJ 1680 4900
+preplace netloc stereo_texp 1 8 6 3470J 760 NJ 760 4560J 720 NJ 720 NJ 720 5720
+preplace netloc texp_drive 1 8 6 3540J 810 3960J 800 4590J 1020 4920J 820 NJ 820 5720
+preplace netloc texp_pins_1 1 0 8 20J 1120 NJ 1120 NJ 1120 NJ 1120 1440J 890 NJ 890 NJ 890 2730J
+preplace netloc xlconstant_0_dout 1 1 11 240 2070 NJ 2070 1070J 2050 NJ 2050 NJ 2050 NJ 2050 NJ 2050 NJ 2050 4150 1660 NJ 1660 5080
+preplace netloc xlconstant_1_dout 1 1 1 NJ 1900
+preplace netloc zynq_ultra_ps_e_0_emio_i2c1_scl_o 1 8 4 N 1660 4100J 1620 4600 1160 5020J
+preplace netloc zynq_ultra_ps_e_0_emio_i2c1_scl_t 1 8 4 N 1680 4090J 1600 4610 1180 5010
+preplace netloc zynq_ultra_ps_e_0_emio_i2c1_sda_o 1 8 4 NJ 1720 4130J 1610 4630 1210 4970J
+preplace netloc zynq_ultra_ps_e_0_emio_i2c1_sda_t 1 8 4 NJ 1740 4120J 1590 4620 1190 5040
+preplace netloc zynq_ultra_ps_e_0_pl_clk0 1 1 11 250 1990 610 1870 1050J 1920 NJ 1920 NJ 1920 NJ 1920 2750 1880 3520 1800 4080 1900 NJ 1900 5070
+preplace netloc zynq_ultra_ps_e_0_pl_resetn0 1 1 11 260 1980 620J 1860 1070 1890 NJ 1890 1880J 1960 NJ 1960 NJ 1960 3590 1300 4110J 1230 4590J 1200 4980
+preplace netloc zynq_ultra_ps_e_0_ps_pl_irq_rtc_seconds 1 7 2 2750 500 3460
+preplace netloc axi_iic_gmax_a_iic2intc_irpt 1 12 1 5460 980n
+preplace netloc axi_iic_gmax_b_iic2intc_irpt 1 12 1 5470 1000n
+preplace netloc gmax_capture_dma_s2mm_introut 1 6 7 NJ 1020 2710J 880 3480J 820 NJ 820 4600J 980 4910J 850 5490
+preplace netloc gmax_capture_dma_b_s2mm_introut 1 10 3 NJ 1130 4940J 840 5520J
+preplace netloc fh_export_dma_mm2s_introut 1 6 7 NJ 460 NJ 460 NJ 460 3940J 1580 4580J 1670 4890J 1980 5490
+preplace netloc fh_export_dma_s2mm_introut 1 6 7 2390J 2090 NJ 2090 NJ 2090 NJ 2090 NJ 2090 NJ 2090 5500
+preplace netloc monitor_a_dma_s2mm_introut 1 6 7 NJ 1200 NJ 1200 3500J 2100 NJ 2100 NJ 2100 NJ 2100 5520J
+preplace netloc monitor_b_dma_s2mm_introut 1 6 7 2370J 1490 NJ 1490 3470J 1670 NJ 1670 4550J 1990 NJ 1990 5510J
+preplace netloc fh_pl_irq_concat_dout 1 7 7 2780 2080 NJ 2080 NJ 2080 NJ 2080 NJ 2080 NJ 2080 5720
+preplace netloc C0_SYS_CLK_0_1 1 0 12 NJ 870 NJ 870 NJ 870 NJ 870 NJ 870 NJ 870 NJ 870 NJ 870 3500J 830 NJ 830 4520J 970 4930J
+preplace netloc axi_gpio_0_GPIO 1 12 2 NJ 1890 5730
+preplace netloc axi_gpio_0_GPIO2 1 12 2 NJ 1910 N
+preplace netloc axi_gpio_0_GPIO2_b 1 12 2 NJ 1770 N
+preplace netloc axi_gpio_0_GPIO_b 1 12 2 NJ 1750 5730
+preplace netloc axi_iic_gmax_a_IIC 1 12 2 NJ 1580 N
+preplace netloc axi_iic_gmax_a_IIC_b 1 12 2 NJ 1440 N
+preplace netloc axi_smc_M00_AXI 1 9 1 3920 900n
+preplace netloc axi_smc_M01_AXI 1 9 3 4020J 1890 NJ 1890 5110
+preplace netloc axi_smc_M02_AXI 1 9 3 4010J 1650 NJ 1650 5090
+preplace netloc axi_smc_M03_AXI 1 9 3 4000J 1640 4560J 1700 4960
+preplace netloc axi_smc_M04_AXI 1 9 1 3910 60n
+preplace netloc axi_smc_M05_AXI 1 5 5 2030 50 NJ 50 NJ 50 NJ 50 3870
+preplace netloc axi_smc_M06_AXI 1 9 1 3950 460n
+preplace netloc axi_smc_M07_AXI 1 9 1 3930 240n
+preplace netloc axi_smc_M08_AXI 1 9 2 3970 810 NJ
+preplace netloc axi_smc_M09_AXI 1 9 3 4030J 1450 NJ 1450 5060
+preplace netloc axi_smc_M10_AXI 1 9 1 4040 1100n
+preplace netloc axi_smc_M11_AXI 1 9 1 3990 1070n
+preplace netloc axi_smc_M12_AXI 1 9 1 3980 900n
+preplace netloc axi_smc_M13_AXI 1 4 6 1530 60 NJ 60 NJ 60 NJ 60 NJ 60 3880
+preplace netloc axi_smc_M14_AXI 1 5 5 2040 70 NJ 70 NJ 70 NJ 70 3890
+preplace netloc axi_smc_M15_AXI 1 4 6 1500 80 NJ 80 NJ 80 NJ 80 NJ 80 3900
+preplace netloc fh_export_dma_M_AXIS_MM2S 1 4 3 1560 300 NJ 300 2370
+preplace netloc fh_export_dma_M_AXI_MM2S 1 6 5 NJ 360 NJ 360 NJ 360 NJ 360 4630
+preplace netloc fh_export_dma_M_AXI_S2MM 1 6 1 2440 380n
+preplace netloc fh_router_0_m_axis 1 5 1 1940 390n
+preplace netloc gmax_capture_b_m_axis 1 9 1 4070 1090n
+preplace netloc gmax_capture_dma_M_AXI_S2MM 1 6 1 2430 980n
+preplace netloc gmax_capture_dma_b_M_AXI_S2MM 1 10 1 4550 830n
+preplace netloc gmax_capture_m_axis 1 5 1 1960 980n
+preplace netloc gmax_ddr_smc_M00_AXI 1 7 1 2700 1370n
+preplace netloc gmax_ddr_smc_M01_AXI 1 7 4 2730J 1270 3530J 1260 4080J 1240 4560
+preplace netloc gmax_dual_ring_m_axi 1 8 1 3560 940n
+preplace netloc gmax_pl_ring_m_axi 1 8 1 3610 610n
+preplace netloc gmax_scheduler_m_axi 1 8 1 3600 780n
+preplace netloc monitor_a_M_AXIS 1 5 1 2020 700n
+preplace netloc monitor_a_dma_M_AXI_S2MM 1 6 1 2420 1160n
+preplace netloc monitor_b_M_AXIS 1 5 1 2040 1390n
+preplace netloc monitor_b_dma_M_AXI_S2MM 1 6 1 N 1390
+preplace netloc monitor_ctrl_M00_AXI 1 5 1 1950 170n
+preplace netloc monitor_ctrl_M01_AXI 1 5 1 1970 740n
+preplace netloc monitor_ctrl_M02_AXI 1 5 1 1980 1140n
+preplace netloc monitor_ctrl_M03_AXI 1 5 1 1910 1410n
+preplace netloc monitor_ctrl_M04_AXI 1 5 1 1920 1430n
+preplace netloc monitor_ctrl_M05_AXI 1 5 1 1990 1370n
+preplace netloc pl_ddr4_C0_DDR4 1 12 2 NJ 920 N
+preplace netloc pl_ddr_smc_M00_AXI 1 11 1 4900 850n
+preplace netloc zynq_ultra_ps_e_0_M_AXI_HPM0_FPD 1 8 2 3580 1650 3870
+levelinfo -pg 1 0 130 430 840 1240 1710 2200 2570 3110 3740 4340 4760 5270 5620 5750
+pagesize -pg 1 -db -bbox -sgen -250 -10 5930 2110
+"
+}
+
