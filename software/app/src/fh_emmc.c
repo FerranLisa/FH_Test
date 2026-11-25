@@ -1,6 +1,8 @@
 #include "fh_emmc.h"
 #ifndef FH_MONITOR_AMP
 #include "ff.h"
+#include "diskio.h"
+#include "fh_sha256.h"
 #include <string.h>
 
 /* SD0 is the only SD controller enabled in FH_Test and is wired to the eMMC. */
@@ -10,6 +12,8 @@ static const char *const backup[] = {"0:/FHUPDATE/BOOT.OLD", "0:/FHUPDATE/FIT.OL
 static const char *const absent[] = {"0:/FHUPDATE/BOOT.NIL", "0:/FHUPDATE/FIT.NIL", "0:/FHUPDATE/SCRIPT.NIL"};
 #define JOURNAL "0:/FHUPDATE/PENDING"
 enum { FILE_COUNT = sizeof target / sizeof target[0] };
+enum { SECTOR_BYTES = 512, MBR_ENTRIES = 446, EXT4_SUPER = 1024 };
+enum UpdatePhase { BOOT_FILES, ROOTFS_DATA, ROOTFS_DIGEST, ROOTFS_VERIFY };
 static FATFS fs;
 static FIL file;
 static int mounted, opened, index_now;
@@ -17,6 +21,47 @@ static u32 size[FILE_COUNT], remaining, read_crc[FILE_COUNT], table[256];
 static u8 buf[32768] __attribute__((aligned(64)));
 static u8 trailer[4 * FILE_COUNT];
 static unsigned used, trailer_used;
+static enum UpdatePhase phase;
+static LBA_t root_start;
+static u64 root_size, root_offset;
+static u8 root_digest[32];
+static FhSha256 root_sha;
+
+static u32 read_le32(const u8 *p)
+{
+    return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
+}
+
+static const char *check_partitions(u64 bytes)
+{
+    const u8 *p1 = buf + MBR_ENTRIES;
+    const u8 *p2 = p1 + 16;
+    DWORD media_sectors = 0;
+    if (disk_ioctl(fs.pdrv, GET_SECTOR_COUNT, &media_sectors) != RES_OK ||
+        disk_read(fs.pdrv, buf, 0, 1) != RES_OK)
+        return "ERR cannot read eMMC partition table or capacity\n";
+
+    u32 fat_start = read_le32(p1 + 8), fat_count = read_le32(p1 + 12);
+    u32 ext_start = read_le32(p2 + 8), ext_count = read_le32(p2 + 12);
+    if (buf[510] != 0x55 || buf[511] != 0xaa ||
+        (p1[4] != 0x0b && p1[4] != 0x0c) || p2[4] != 0x83 ||
+        !fat_start || !fat_count || !ext_count ||
+        (u64)fat_start + fat_count > ext_start ||
+        (u64)ext_start + ext_count > media_sectors ||
+        p2[16 + 4] || p2[32 + 4] ||
+        fs.fs_type != FS_FAT32 || fs.volbase != fat_start)
+        return "ERR expected DOS table with FAT32 p1 and Linux p2 on eMMC\n";
+
+    if (disk_read(fs.pdrv, buf, fat_start, 1) != RES_OK ||
+        buf[11] != 0 || buf[12] != 2 || buf[19] || buf[20] ||
+        read_le32(buf + 32) == 0 || read_le32(buf + 32) > fat_count)
+        return "ERR FAT32 volume extends outside eMMC p1 or has invalid geometry\n";
+
+    if (bytes < 2 * EXT4_SUPER || bytes % SECTOR_BYTES || bytes / SECTOR_BYTES > ext_count)
+        return "ERR rootfs.ext4 must be sector-aligned and fit in eMMC p2\n";
+    root_start = ext_start;
+    return NULL;
+}
 
 static int remove_if_present(const char *path)
 {
@@ -70,11 +115,15 @@ static int open_stage(void)
     return opened;
 }
 
-const char *fh_emmc_begin(u32 boot, u32 fit, u32 script)
+const char *fh_emmc_begin(u32 boot, u32 fit, u32 script, u64 rootfs)
 {
     mounted = 1;
     if (f_mount(&fs, "0:", 1) != FR_OK)
         return "ERR eMMC requires an existing writable FAT boot volume\n";
+    if (rootfs) {
+        const char *error = check_partitions(rootfs);
+        if (error) return error;
+    }
     FRESULT r = f_mkdir("0:/FHUPDATE");
     if ((r != FR_OK && r != FR_EXIST) || !recover())
         return "ERR cannot prepare eMMC update directory or recover previous update\n";
@@ -91,6 +140,8 @@ const char *fh_emmc_begin(u32 boot, u32 fit, u32 script)
     size[1] = fit;
     size[2] = script;
     index_now = trailer_used = 0;
+    root_size = rootfs;
+    phase = BOOT_FILES;
     return open_stage() ? NULL : "ERR cannot open eMMC boot staging file\n";
 }
 
@@ -113,12 +164,19 @@ static int verify_stage(void)
     return 1;
 }
 
-static const char *activate(void)
+static int boot_crc_matches(void)
 {
     for (int i = 0; i < FILE_COUNT; ++i) {
         for (int j = 0; j < 4; ++j)
             if (trailer[4*i+j] != (u8)(read_crc[i] >> (8*j)))
-                return "ERR eMMC readback CRC mismatch; original boot files retained\n";
+                return 0;
+    }
+    return 1;
+}
+
+static const char *activate(void)
+{
+    for (int i = 0; i < FILE_COUNT; ++i) {
         FRESULT r = probe(target[i]);
         if (r != FR_OK && (r != FR_NO_FILE || !mark(absent[i])))
             return "ERR cannot inspect original eMMC boot files\n";
@@ -138,8 +196,74 @@ static const char *activate(void)
     return "OK EMMC\n";
 }
 
+static int ext_image_fits(void)
+{
+    const u8 *super = buf + EXT4_SUPER;
+    u32 log_block = read_le32(super + 24);
+    u64 blocks = read_le32(super + 4);
+    if (read_le32(super + 96) & 0x80)
+        blocks |= (u64)read_le32(super + 0x150) << 32;
+    return super[56] == 0x53 && super[57] == 0xef &&
+           log_block <= 6 && blocks && blocks <= (root_size >> (10 + log_block));
+}
+
+static const char *receive_rootfs(const u8 *data, unsigned bytes)
+{
+    while (bytes && phase == ROOTFS_DATA) {
+        unsigned n = sizeof buf - used;
+        u64 left = root_size - root_offset - used;
+        if (n > bytes) n = bytes;
+        if (n > left) n = (unsigned)left;
+        memcpy(buf + used, data, n);
+        used += n; data += n; bytes -= n;
+        if (used == sizeof buf || root_offset + used == root_size) {
+            if (!root_offset && !ext_image_fits())
+                return "ERR rootfs.ext4 has an invalid filesystem superblock or size\n";
+            if (disk_write(fs.pdrv, buf, root_start + root_offset / SECTOR_BYTES,
+                           used / SECTOR_BYTES) != RES_OK)
+                return "ERR eMMC p2 write failed; rootfs may be incomplete\n";
+            root_offset += used;
+            used = 0;
+            if (root_offset == root_size) phase = ROOTFS_DIGEST;
+        }
+    }
+    if (phase == ROOTFS_DATA) return NULL;
+    if (phase != ROOTFS_DIGEST || bytes > sizeof root_digest - used)
+        return "ERR unexpected rootfs payload length\n";
+    memcpy(root_digest + used, data, bytes);
+    used += bytes;
+    if (used == sizeof root_digest) {
+        if (disk_ioctl(fs.pdrv, CTRL_SYNC, NULL) != RES_OK)
+            return "ERR cannot synchronize eMMC after writing rootfs\n";
+        fh_sha256_init(&root_sha);
+        root_offset = 0;
+        phase = ROOTFS_VERIFY;
+    }
+    return NULL;
+}
+
+const char *fh_emmc_poll(unsigned *percent)
+{
+    if (phase != ROOTFS_VERIFY) return NULL;
+    u64 left = root_size - root_offset;
+    unsigned n = left < sizeof buf ? (unsigned)left : sizeof buf;
+    if (disk_read(fs.pdrv, buf, root_start + root_offset / SECTOR_BYTES,
+                  n / SECTOR_BYTES) != RES_OK)
+        return "ERR eMMC p2 readback failed\n";
+    fh_sha256_blocks(&root_sha, buf, n);
+    root_offset += n;
+    *percent = (unsigned)(100 * root_offset / root_size);
+    if (root_offset != root_size) return NULL;
+    u8 digest[sizeof root_digest];
+    fh_sha256_finish(&root_sha, digest);
+    if (memcmp(digest, root_digest, sizeof digest))
+        return "ERR eMMC p2 SHA-256 mismatch; boot update withheld\n";
+    return activate();
+}
+
 const char *fh_emmc_receive(const u8 *data, unsigned bytes)
 {
+    if (phase != BOOT_FILES) return receive_rootfs(data, bytes);
     while (bytes && index_now < FILE_COUNT) {
         unsigned n = sizeof buf - used;
         if (n > bytes) n = bytes;
@@ -160,6 +284,12 @@ const char *fh_emmc_receive(const u8 *data, unsigned bytes)
     if (bytes > sizeof trailer - trailer_used) return "ERR unexpected eMMC payload length\n";
     memcpy(trailer + trailer_used, data, bytes);
     trailer_used += bytes;
-    return trailer_used == sizeof trailer ? activate() : NULL;
+    if (trailer_used != sizeof trailer) return NULL;
+    if (!boot_crc_matches())
+        return "ERR eMMC readback CRC mismatch; original boot files retained\n";
+    if (!root_size) return activate();
+    root_offset = used = 0;
+    phase = ROOTFS_DATA;
+    return "READY ROOTFS\n";
 }
 #endif

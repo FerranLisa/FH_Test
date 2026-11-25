@@ -26,7 +26,7 @@ from fh_fetch import frame_times
 from fh_route import Route
 from fh_version import RELEASE_LABEL
 from fh_program import default_paths, launch as launch_jtag
-from fh_emmc import boot_files, install as install_emmc
+from fh_emmc import boot_files, rootfs_file, install as install_emmc
 
 
 class Worker(QtCore.QThread):
@@ -34,6 +34,7 @@ class Worker(QtCore.QThread):
     failed = QtCore.pyqtSignal(str)
     request_arm = QtCore.pyqtSignal()
     progress = QtCore.pyqtSignal(int, int)
+    phase = QtCore.pyqtSignal(str)
 
     def __init__(self, operation, host, port, row=None, folder=None, files=None, route=None):
         super().__init__()
@@ -92,13 +93,14 @@ class Worker(QtCore.QThread):
         try:
             if self.operation == 'emmc':
                 status = self.wait_for_ethernet()
-                if status.get('emmc') != '2':
-                    raise RuntimeError('Load standalone firmware with three-file eMMC support.')
+                if status.get('emmc_ext4') != '1':
+                    raise RuntimeError('Load standalone firmware with ext4 eMMC installation support.')
                 self.request_arm.emit()
                 if not self.armed.wait(5):
                     raise RuntimeError('Board did not authorize eMMC upload. Load the updated standalone firmware and enter Ethernet export.')
                 result = self.request(lambda sock: install_emmc(
-                    sock, self.folder, self.token, self.cancelled.is_set, self.progress.emit),
+                    sock, self.folder, self.token, self.cancelled.is_set, self.progress.emit,
+                    ext4=True, phase=self.phase.emit),
                     response_timeout=240)
             elif self.operation == 'catalog':
                 status = self.wait_for_ethernet()
@@ -872,22 +874,23 @@ class FHTest(QtWidgets.QMainWindow):
 
     def program_emmc(self):
         folder = QtWidgets.QFileDialog.getExistingDirectory(
-            self, 'Select folder containing BOOT.BIN, image.ub and boot.scr',
+            self, 'Select folder containing BOOT.BIN, image.ub, boot.scr and rootfs.ext4',
             str(self.settings.value('emmc_folder', '')))
         if not folder:
             return
         try:
-            files = boot_files(folder)
+            files = [*boot_files(folder), rootfs_file(folder)]
+            details = '\n'.join(f'{path.name} ({path.stat().st_size:,} bytes)' for path in files)
         except (OSError, ValueError) as exc:
-            QtWidgets.QMessageBox.warning(self, 'PetaLinux boot files', str(exc))
+            QtWidgets.QMessageBox.warning(self, 'PetaLinux installation files', str(exc))
             return
         host = self.host.text().strip()
-        details = '\n'.join(f'{path.name} ({path.stat().st_size:,} bytes)' for path in files)
         yes = enum(QtWidgets.QMessageBox, 'StandardButton', 'Yes')
         no = enum(QtWidgets.QMessageBox, 'StandardButton', 'No')
         if QtWidgets.QMessageBox.question(
-                self, 'Replace eMMC boot files?',
-                f'{folder}\n{details}\n\nReplace these files on the eMMC boot volume of {host}?\n'
+                self, 'Install PetaLinux on eMMC?',
+                f'{folder}\n{details}\n\nInstall on {host}?\n'
+                'This overwrites the root filesystem in eMMC p2 and replaces the three boot files in p1.\n'
                 'Keep the board powered until verification completes.',
                 yes | no, no) != yes:
             return
@@ -904,6 +907,7 @@ class FHTest(QtWidgets.QMainWindow):
             if self.sequence.state != 'entering_export':
                 return
         worker.request_arm.connect(lambda: self.arm_emmc(worker))
+        worker.phase.connect(self.notice)
         self.run_worker(worker)
 
     def arm_emmc(self, worker):

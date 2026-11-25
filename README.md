@@ -1,8 +1,26 @@
-# FH_Test — V35.2
+# FH_Test — V35.3
 
 Two physical GMAX3412 receivers on FH_Carrier. Startup reports independent initialization and 16-lane training results. UART 8 and 9 open sensor diagnostics. Enter C1 or C2 with an optional exposure in microseconds, followed by Enter (for example C2:2000). The default is 1000 us. U:3000 sets a 3000 us exposure on both sensors for this run and asks for R and duration. Plain U also prompts for exposure (default 1000 us). U arms both receivers and strobes both TEXP1 lines together. R selects how many central 4096 × 1024 crops to retain between full frames. Both sensors read full frames. Busy 4 ms timer slots are skipped. N exports retained images; Ethernet sensor indices are 0 and 1.
 
-## Changes since V35.2
+## Changes in V35.3
+
+The firmware banner and desktop title report **V35.3 (emmc-ext4)**.
+
+### PetaLinux installation on FAT32 and ext4
+
+**Install PetaLinux on eMMC...** now installs the production root filesystem as well as the three boot files. The standalone firmware checks the eMMC partition table, writes the raw ext4 image to p2, and verifies SHA-256 by rereading p2 before replacing the boot files in p1. The desktop application displays progress during transfer and readback.
+
+### Capture DMA interrupts
+
+In the standalone application, `C1` waits for capture DMA A, `C2` for DMA B, and `CS` for both completions in either order. Each DMA has its own interrupt handler and saved status. The handlers share the BSP interrupt controller with Ethernet and acknowledge completion and error bits on their respective channels.
+
+Before firing TEXP, the application clears stale DMA events and enables completion and error interrupts for the selected channels. After the pulse, the A53 sleeps between events. TTC0 counter 2 wakes it every 10 ms during the wait so a missing completion can time out. Both sensors share a deadline of the programmed exposure plus 500 ms from the trigger request. Frame publication requires successful DMA completion, receiver status, exact byte counts and consistent TEXP timestamps. A failed capture discards the entire request and resets the armed DMA channels.
+
+Continuous capture (`U`) still uses the PL dual-ring controller to coordinate both DMA channels and publish the LUT. The Linux/AMP monitor keeps its existing acquisition path.
+
+**Board verification.** Load a bitstream with the capture DMA interrupts on `pl_ps_irq0[2:3]` and build the standalone application against its matching XSA. Run `C1`, `C2` and repeated `CS` captures, returning from Ethernet export with Esc between requests. Check the UART capture result and the LUT for the expected sensor addresses and FrameID. On a controlled timeout test, check that the failed frame is absent and that the next capture succeeds.
+
+## Earlier updates to V35.2
 
 - After JTAG programming, select **Install PetaLinux on eMMC...** from the main menu in FH_Test.py. The application starts the Ethernet server if needed and checks that the firmware supports the three-file update. It uploads `BOOT.BIN`, `image.ub` and the U-Boot script `boot.scr` together. The firmware verifies all three files on the eMMC before replacing the boot files.
 - Ethernet startup reuses an RTL8211F link already negotiated at 1 Gb/s full duplex with the required advertisement. When negotiation is needed, the firmware polls every 50 ms with a 15-second timeout.
@@ -69,7 +87,7 @@ is separate.
 
 Vivado names the implementation bitstream `FH_Carrier_Bringup_top.bit` after the top-level RTL module. The export step copies it to `hardware/exports/FH_Firmware.bit` and writes the matching `FH_Firmware.ltx` debug probes and `FH_Firmware.xsa` hardware handoff in the same directory. Vitis uses that XSA to build `FH_TestPlatform`.
 
-## Build V35.2
+## Build V35.3
 
 Close Vivado and Vitis, then run the following command from the FH_Test project root.
 
@@ -208,12 +226,29 @@ workspace before running; the script never deletes workspace locks.
 
 ## Install PetaLinux boot files on the eMMC
 
-Build the standalone Vitis platform and application with `scripts/software.ps1 -Stage BuildPlatform` followed by `scripts/software.ps1 -Stage BuildApp`. Load the resulting firmware over JTAG. The standalone platform includes the writable XilFFS library for the SOM's SD0 eMMC.
+The carrier uses a DOS/MBR partition table. The intended layout is FAT32 p1 (2 GiB) and Linux p2 (about 5.09 GiB). Keep the known-good files and their `SHA256SUMS` under `/backups/petalinux-2025.2-known-good/` on p1. The installer uses the existing partition table and writes only to p2, to its own staging directory on p1, and to the three boot paths in the root of p1.
+
+In the PetaLinux 2025.2 project, run `petalinux-config` and select **Image Packaging Configuration → Root file system type → EXT4 (SD/eMMC/SATA/USB)**. Set the ext4 device node to `/dev/mmcblk0p2`. If bootargs are managed manually, retain the required board and UART arguments and include `root=/dev/mmcblk0p2 rootfstype=ext4 rw rootwait`. Rebuild and package the matching production `BOOT.BIN`, `boot.scr`, `image.ub` and raw `rootfs.ext4`. Check the production FIT device tree and any bootargs set by the U-Boot script or environment so the effective command line selects p2. See [AMD's PetaLinux 2025.2 ext4 bootargs configuration](https://docs.amd.com/r/2025.2-English/Vitis-Tutorials-Vitis-Platform-Creation/Add-EXT4-rootfs-support).
+
+Build the standalone application against the matching XSA. Run the first command if the platform needs rebuilding. The standalone platform includes writable XilFFS for the SOM's SD0 eMMC.
+
+```powershell
+.\scripts\software.ps1 -Stage BuildPlatform
+.\scripts\software.ps1 -Stage BuildApp
+python -m unittest discover -s tests -p test_emmc.py -v
+```
 
 1. In FH_Test.py, connect UART and wait for the main menu after JTAG programming. Stop any active capture.
-2. Select **Install PetaLinux on eMMC...** and choose the PC folder containing `BOOT.BIN`, `image.ub` and `boot.scr`. Confirm the destination. FH_Test starts Ethernet export from the main menu or reuses the running server. UART authorizes one update, and the configured Ethernet TCP endpoint carries all three files.
-3. Wait for **Verified BOOT.BIN, image.ub and boot.scr on eMMC.** The firmware stages all three files on the existing FAT boot volume, rereads them and checks their sizes and CRC32 values before replacing the boot files. Allow enough free space for all three new files. The updater reserves the `FHUPDATE` directory for staging and rollback. After an interrupted installation, rerun it from the standalone firmware before booting from eMMC.
-4. Select the board's eMMC boot mode and power-cycle. The PetaLinux build must be configured to load this FIT and supply its root filesystem (embedded in the image or already provisioned). This operation updates the three named files on an existing FAT volume.
+2. Select **Install PetaLinux on eMMC...**, choose the PC folder containing the four production files, and confirm the destination. FH_Test starts Ethernet export if needed. UART authorizes one installation.
+3. Wait for **Verified rootfs.ext4 (SHA-256) and installed BOOT.BIN, image.ub and boot.scr on eMMC.** The firmware stages and reads back the three boot files in `FHUPDATE` on p1, then writes `rootfs.ext4` directly to p2 in blocks. After SHA-256 readback passes, it replaces the three boot files. Allow room on p1 for all three staged files. An interrupted write can leave p2 incomplete. Rerun the full installation from JTAG before trying to boot production.
+4. Select the board's eMMC boot mode and power-cycle. In Linux, run the commands below. The first must show `/dev/mmcblk0p2` with type `ext4`. The second must show the expected bootargs. Verify the rescue manifest from the mounted p1 using its actual mount point.
+
+```sh
+findmnt -n -o SOURCE,FSTYPE,OPTIONS /
+cat /proc/cmdline
+findmnt -n -o TARGET /dev/mmcblk0p1
+(cd /run/media/mmcblk0p1/backups/petalinux-2025.2-known-good && sha256sum -c SHA256SUMS)
+```
 
 ## Console and board checks
 

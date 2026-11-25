@@ -56,7 +56,7 @@ class StartupTests(unittest.TestCase):
         w.armed = threading.Event()
         w.request_arm = Mock()
         w.request_arm.emit.side_effect = w.armed.set
-        w.request = Mock(side_effect=[TimeoutError(), {'emmc': '2'}, 'verified'])
+        w.request = Mock(side_effect=[TimeoutError(), {'emmc': '2', 'emmc_ext4': '1'}, 'verified'])
         with patch.object(w.cancelled, 'wait', return_value=False):
             w.run()
         w.request_arm.emit.assert_called_once()
@@ -67,10 +67,10 @@ class StartupTests(unittest.TestCase):
         w = self.worker()
         w.operation = 'emmc'
         w.request_arm = Mock()
-        w.request = Mock(return_value={'emmc': '1'})
+        w.request = Mock(return_value={'emmc': '2'})
         w.run()
         w.request_arm.emit.assert_not_called()
-        self.assertIn('three-file', w.failed.emit.call_args.args[0])
+        self.assertIn('ext4 eMMC', w.failed.emit.call_args.args[0])
 
 if __name__ == '__main__':
     unittest.main()

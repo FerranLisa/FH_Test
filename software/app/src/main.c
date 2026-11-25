@@ -6753,6 +6753,9 @@ static void fh_board_mac(u8 mac[6])
 
 /* One stopped capture at a time. DMA A writes directly into its 2 GiB
  * PL DDR partition. Address 1 = 0 identifies a single physical sensor. */
+#ifndef FH_MONITOR_AMP
+#include "fh_capture_irq.h"
+#endif
 static int gmax_arm_frame(u64 address, u32 bytes)
 {
     for (u32 i=0;i<2;++i)
@@ -6764,7 +6767,14 @@ static int gmax_arm_frame(u64 address, u32 bytes)
     fh_frame_invalidate_sensor(SensorIndex,address,bytes);
     Xil_DCacheFlushRange((INTPTR)address,bytes);
     cap_write(CAP_DMA+0x34U,0x7000U);
+#ifdef FH_MONITOR_AMP
     cap_write(CAP_DMA+0x30U,1U);
+#else
+    FhCaptureIrq *channel = &CaptureIrq[SensorIndex];
+    channel->status = 0;
+    XEnableIntrId(channel->irq, channel->parent);
+    cap_write(CAP_DMA+0x30U,1U | FH_DMA_IOC | FH_DMA_ERR_IRQ);
+#endif
     cap_write(CAP_DMA+0x4CU,(u32)(address>>32));
     cap_write(CAP_DMA+0x48U,(u32)address);
     cap_write(CAP_DMA+0x58U,bytes);
@@ -6775,6 +6785,7 @@ static int gmax_arm_frame(u64 address, u32 bytes)
     return XST_SUCCESS;
 }
 
+#ifdef FH_MONITOR_AMP
 static int gmax_frame_complete(u32 bytes, u32 timeout_us)
 {
     u32 bridge, dma;
@@ -6790,6 +6801,26 @@ static int gmax_frame_complete(u32 bytes, u32 timeout_us)
     gmax_log("Frame discarded: DMA=0x%08X capture=0x%08X.\r\n", dma, bridge);
     return 0;
 }
+
+#else
+static int gmax_validate_frame(u32 bytes, u64 deadline)
+{
+    /* The bridge and DMA status cross different clock domains. IOC has
+     * already been acknowledged by the handler. Allow the bridge to settle. */
+    u32 bridge, dma;
+    do {
+        bridge = cap_diag(3U,0U);
+        dma = cap_read(CAP_DMA+0x34U);
+        if ((bridge & 0x38U) || ((dma | CaptureIrq[SensorIndex].status) &
+                                 (FH_DMA_ERRORS | FH_DMA_ERR_IRQ))) break;
+        if ((bridge & 0xC4U) == 0xC4U && (dma & 2U))
+            return cap_diag(3U,2U) == bytes && cap_read(CAP_DMA+0x58U) == bytes;
+        __asm__ volatile("wfe" ::: "memory");
+    } while (capture_us() < deadline);
+    gmax_log("Frame discarded after IRQ: DMA=%08x bridge=%08x.\r\n", dma, bridge);
+    return 0;
+}
+#endif
 
 static int gmax_store_frames(int test_image, int stereo)
 {
@@ -6808,6 +6839,12 @@ static int gmax_store_frames(int test_image, int stereo)
     BurstControl=cap_read(BURST_GPIO);
     if (dual_diag(0)!=0x3412D035U || !dual_diag(12) ||
         ((dual_diag(1)|plr_diag(1)|burst_diag(1))&1U)) return XST_FAILURE;
+#ifndef FH_MONITOR_AMP
+    if (capture_irq_init() != XST_SUCCESS) {
+        gmax_log("Cannot initialize capture DMA interrupts or timeout timer.\r\n");
+        return XST_FAILURE;
+    }
+#endif
     time_prepare();
     fh_frame_set_capture_active(1);
     for (SensorIndex=first; SensorIndex<=last; ++SensorIndex) {
@@ -6824,9 +6861,20 @@ static int gmax_store_frames(int test_image, int stereo)
             gmax_select_image_source(test_image)!=XST_SUCCESS) goto finish;
     }
     time_service();
+#ifndef FH_MONITOR_AMP
+    u64 deadline = capture_us() + FrameExposureUs + 500000ULL;
+#endif
     if (gmax_fpga_pulse(armed,FrameExposureUs)!=XST_SUCCESS) goto finish;
+#ifdef FH_MONITOR_AMP
     for (SensorIndex=first; SensorIndex<=last; ++SensorIndex)
         if (!gmax_frame_complete(bytes,500000U)) goto finish;
+#else
+    XTtcPs_EnableInterrupts(&CaptureWakeTimer, XTTCPS_IXR_INTERVAL_MASK);
+    XTtcPs_Start(&CaptureWakeTimer);
+    if (!capture_wait_irqs(armed, deadline)) goto finish;
+    for (SensorIndex=first; SensorIndex<=last; ++SensorIndex)
+        if (!gmax_validate_frame(bytes,deadline)) goto finish;
+#endif
     time_service();
     for (SensorIndex=first; SensorIndex<=last; ++SensorIndex) {
         unsigned reg=0x16+4*SensorIndex;
@@ -6840,8 +6888,15 @@ static int gmax_store_frames(int test_image, int stereo)
     }
     complete=1;
 finish:
+#ifndef FH_MONITOR_AMP
+    XTtcPs_Stop(&CaptureWakeTimer);
+    XTtcPs_DisableInterrupts(&CaptureWakeTimer, XTTCPS_IXR_INTERVAL_MASK);
+#endif
     for (SensorIndex=first; SensorIndex<=last; ++SensorIndex) {
         if (!(armed & (1U<<SensorIndex))) continue;
+#ifndef FH_MONITOR_AMP
+        XDisableIntrId(CaptureIrq[SensorIndex].irq, CaptureIrq[SensorIndex].parent);
+#endif
         cap_write(CAP_GPIO,0U);
         if (cap_dma_reset()!=XST_SUCCESS) {
             DualOwnershipBlocked=1;

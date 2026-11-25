@@ -308,20 +308,26 @@ static void service_timers(void)
     }
 }
 
-/* Decimal-only, bounded protocol integers; strtoul/sscanf accept signs and
- * trailing junk, which must not silently select a different image. */
-static int parse_number(const char *s, unsigned long *out)
+/* Decimal-only protocol integers with the limit chosen by the caller. */
+static int parse_decimal(const char *s, u64 limit, u64 *out)
 {
-    unsigned long n=0UL;
+    u64 n=0;
     if (!s || !*s) return 0;
     for (;*s;++s) {
-        unsigned long digit;
         if (*s<'0' || *s>'9') return 0;
-        digit=(unsigned long)(*s-'0');
-        if (n>(0xFFFFFFFFUL-digit)/10UL) return 0;
-        n=n*10UL+digit;
+        unsigned digit=(unsigned)(*s-'0');
+        if (n>(limit-digit)/10) return 0;
+        n=n*10+digit;
     }
     *out=n;
+    return 1;
+}
+
+static int parse_number(const char *s, unsigned long *out)
+{
+    u64 n;
+    if (!parse_decimal(s, UINT32_MAX, &n)) return 0;
+    *out=(unsigned long)n;
     return 1;
 }
 
@@ -448,17 +454,22 @@ static void parse_command(void)
         token=strtok(NULL," \t");
     }
 #ifndef FH_MONITOR_AMP
-    if (parsed && !strcmp(tokens[0], "EMMC")) {
+    if (parsed && (!strcmp(tokens[0], "EMMC") || !strcmp(tokens[0], "EMMC3"))) {
+        int with_root = !strcmp(tokens[0], "EMMC3");
         unsigned long boot, fit, script;
-        if (parsed != 5 || !parse_number(tokens[2], &boot) || !boot ||
-            !parse_number(tokens[3], &fit) || !fit || !parse_number(tokens[4], &script) || !script) {
+        u64 root = 0;
+        if (parsed != 5 + with_root ||
+            !parse_number(tokens[2], &boot) || !boot ||
+            !parse_number(tokens[3], &fit) || !fit ||
+            !parse_number(tokens[4], &script) || !script ||
+            (with_root && (!parse_decimal(tokens[5], UINT64_MAX, &root) || !root))) {
             set_reply("ERR invalid eMMC request\n"); return;
         }
         if (monotonic_us() >= TokenDeadline || strcmp(tokens[1], UpdateToken)) {
             set_reply("ERR eMMC upload requires local UART authorization\n"); return;
         }
         TokenDeadline = 0;
-        const char *error = fh_emmc_begin((u32)boot, (u32)fit, (u32)script);
+        const char *error = fh_emmc_begin((u32)boot, (u32)fit, (u32)script, root);
         if (error || tcp_write(Conn.pcb, "READY EMMC\n", 11, TCP_WRITE_FLAG_COPY) != ERR_OK) {
             fh_emmc_close();
             set_reply(error ? error : "ERR cannot start upload\n"); return;
@@ -499,7 +510,7 @@ static void parse_command(void)
         snprintf(Conn.text,sizeof Conn.text,
                  "STATUS protocol=1 timestamps=1 mode=stopped-only "
 #ifndef FH_MONITOR_AMP
-                 "emmc=2 "
+                 "emmc=2 emmc_ext4=1 "
 #endif
                  "entries=%lu ready=%u capture=%u router=%u routed_protocol=2 release=" FH_RELEASE " release_state=" FH_RELEASE_STATE " %s\n",
                  (unsigned long)fh_frame_count(), (unsigned)fh_frame_is_ready(),
@@ -655,6 +666,26 @@ static void pump_tx(void)
         discard_client(0, "reply acknowledged");
 }
 
+#ifndef FH_MONITOR_AMP
+static void finish_upload(const char *reply)
+{
+    fh_emmc_close();
+    UploadActive = 0;
+    set_reply(reply);
+    pump_tx();
+}
+
+static int send_upload_line(const char *line)
+{
+    u16 len = (u16)strlen(line);
+    if (tcp_write(Conn.pcb, line, len, TCP_WRITE_FLAG_COPY) != ERR_OK) return 0;
+    Conn.bytes_queued += len;
+    Conn.last_ack_us = monotonic_us();
+    tcp_output(Conn.pcb);
+    return 1;
+}
+#endif
+
 static err_t recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 {
     struct pbuf *q;
@@ -679,16 +710,18 @@ static err_t recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 #ifndef FH_MONITOR_AMP
     if (UploadActive) {
         const char *reply = NULL;
-        for (q = p; q && !reply; q = q->next)
+        for (q = p; q && !reply; q = q->next) {
             reply = fh_emmc_receive(q->payload, q->len);
+            if (reply && q->next && !strcmp(reply, "READY ROOTFS\n"))
+                reply = "ERR unexpected data before rootfs readiness\n";
+        }
         tcp_recved(pcb, p->tot_len);
         pbuf_free(p);
         UploadDeadline = monotonic_us() + 120000000ULL;
-        if (reply) {
-            fh_emmc_close();
-            UploadActive = 0;
-            set_reply(reply);
-            pump_tx();
+        if (reply && !strcmp(reply, "READY ROOTFS\n")) {
+            if (!send_upload_line(reply)) finish_upload("ERR cannot start rootfs upload\n");
+        } else if (reply) {
+            finish_upload(reply);
         }
         return CloseWasAbort ? ERR_ABRT : ERR_OK;
     }
@@ -712,7 +745,7 @@ static err_t recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
     pbuf_free(p);
     if (complete) {
         Conn.command[Conn.command_used]=0;
-        xil_printf("TCP request: %s\r\n", strncmp(Conn.command,"EMMC ",5) ? Conn.command : "EMMC");
+        xil_printf("TCP request: %s\r\n", strncmp(Conn.command,"EMMC",4) ? Conn.command : "EMMC");
         parse_command();
         pump_tx();
         if (!Conn.pcb && CloseWasAbort) return ERR_ABRT;
@@ -1084,6 +1117,7 @@ int fh_eth_serve(const u8 mac[6])
 #ifndef FH_MONITOR_AMP
     TokenDeadline = 0;
     ReadingToken = 0;
+    unsigned last_verify_percent = 0;
 #endif
     for (;;) {
         if (XUartPs_IsReceiveData(STDIN_BASEADDRESS)) {
@@ -1112,8 +1146,24 @@ int fh_eth_serve(const u8 mac[6])
         RxDelivered += (u32)xemacif_input(&Netif);
         service_timers();
 #ifndef FH_MONITOR_AMP
-        if (UploadActive && monotonic_us() >= UploadDeadline)
-            discard_client(1, "eMMC upload timed out");
+        if (UploadActive) {
+            unsigned percent = 0;
+            const char *reply = fh_emmc_poll(&percent);
+            if (reply) {
+                finish_upload(reply);
+            } else if (percent > last_verify_percent) {
+                char progress[24];
+                snprintf(progress, sizeof progress, "VERIFY ROOTFS %u\n", percent);
+                if (send_upload_line(progress)) {
+                    last_verify_percent = percent;
+                    UploadDeadline = monotonic_us() + 120000000ULL;
+                }
+            }
+            if (UploadActive && monotonic_us() >= UploadDeadline)
+                discard_client(1, "eMMC upload timed out");
+        } else {
+            last_verify_percent = 0;
+        }
 #endif
         if (reported_link != (int)netif_is_link_up(&Netif)) {
             reported_link = (int)netif_is_link_up(&Netif);
