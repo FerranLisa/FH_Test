@@ -1,10 +1,11 @@
+import io
 import os
 from pathlib import Path
 import struct
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'software/host'))
 from fh_program import preflight, elf_symbol, launch
@@ -64,6 +65,24 @@ class ProgramTests(unittest.TestCase):
             connect.assert_not_called()
             popen.assert_not_called()
 
+    def test_reserved_default_port_is_replaced_before_launching_xsdb(self):
+        self.paths['xsdb'].with_name('hw_server.bat').touch()
+        server = Mock()
+        xsdb = Mock(stdout=io.StringIO('FH_PROGRAM_RUN_OK\n'), returncode=0)
+        with patch('fh_program.socket.create_connection') as connect, \
+             patch('fh_program.socket.socket') as socket_factory, \
+             patch('fh_program.subprocess.Popen', side_effect=[server, xsdb]) as popen, \
+             patch('fh_program.subprocess.CREATE_NO_WINDOW', 0, create=True), \
+             patch('fh_program.stop_tree'):
+            connect.side_effect = [ConnectionRefusedError(), connect.return_value]
+            probe = socket_factory.return_value.__enter__.return_value
+            probe.bind.side_effect = [PermissionError(), None]
+            probe.getsockname.return_value = ('127.0.0.1', 45125)
+            launch(self.tmp.name, self.paths, lambda: False, lambda _: None)
+        self.assertIn('-s tcp:127.0.0.1:45125', popen.call_args_list[0].args[0])
+        self.assertEqual(popen.call_args_list[1].kwargs['env']['FH_PROGRAM_HW_SERVER_URL'],
+                         'tcp:127.0.0.1:45125')
+
     def test_tcl_launch_sequence_with_mock_debugger(self):
         try:
             import tkinter
@@ -83,6 +102,7 @@ class ProgramTests(unittest.TestCase):
             proc after {args} {}
             proc exit {code} {if {$code != 0} {error "launch failed"}}
             proc puts {args} {}
+            set env(FH_PROGRAM_HW_SERVER_URL) tcp:127.0.0.1:45125
             set env(FH_PROGRAM_BIT) test.bit
             set env(FH_PROGRAM_FSBL) fsbl.elf
             set env(FH_PROGRAM_ELF) app.elf
@@ -90,6 +110,7 @@ class ProgramTests(unittest.TestCase):
         ''')
         interp.call('source', str(Path(__file__).resolve().parents[1] / 'scripts/program_run.tcl'))
         calls = str(interp.eval('set calls'))
+        self.assertIn('connect -url tcp:127.0.0.1:45125', calls)
         self.assertLess(calls.index('dow fsbl.elf'), calls.index('con -block -timeout 60'))
         self.assertLess(calls.index('bpremove 17'), calls.index('dow app.elf'))
         self.assertTrue(calls.endswith('con disconnect'))

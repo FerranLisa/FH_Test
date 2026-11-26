@@ -6,6 +6,7 @@ import queue
 import socket
 import struct
 import subprocess
+import tempfile
 import threading
 import time
 import zipfile
@@ -87,10 +88,12 @@ def launch(root, paths, cancelled, output):
         env['FH_PROGRAM_' + key.upper()] = str(paths[key])
     env['FH_PROGRAM_FSBL_EXIT'] = str(exit_address)
     server = process = None
+    host, port = '127.0.0.1', 3121
     flags = subprocess.CREATE_NO_WINDOW
+
     def reachable():
         try:
-            with socket.create_connection(('127.0.0.1', 3121), timeout=0.25):
+            with socket.create_connection((host, port), timeout=0.25):
                 return True
         except OSError:
             return False
@@ -99,15 +102,33 @@ def launch(root, paths, cancelled, output):
             server_path = paths['xsdb'].with_name('hw_server.bat')
             if not server_path.is_file():
                 raise ValueError(f'Missing hardware server: {server_path}')
-            output('Starting local AMD hw_server on port 3121...')
-            server = subprocess.Popen(f'"{os.environ.get("COMSPEC", "cmd.exe")}" /d /s /c ""{server_path}" -s tcp:127.0.0.1:3121"',
-                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
-            deadline = time.monotonic()+15
-            while not reachable():
-                if cancelled(): raise RuntimeError('Programming cancelled')
-                if server.poll() is not None or time.monotonic()>deadline:
-                    raise RuntimeError('hw_server did not start on localhost:3121')
-                time.sleep(0.1)
+            with socket.socket() as probe:
+                try:
+                    probe.bind((host, port))
+                except OSError:
+                    probe.bind((host, 0))
+                    port = probe.getsockname()[1]
+                    output(f'Local TCP port 3121 is unavailable. Using port {port}.')
+            output(f'Starting local AMD hw_server on port {port}...')
+            with tempfile.TemporaryFile() as server_log:
+                server = subprocess.Popen(
+                    f'"{os.environ.get("COMSPEC", "cmd.exe")}" /d /s /c ""{server_path}" -s tcp:{host}:{port} -p0 -I30"',
+                    stdout=server_log, stderr=subprocess.STDOUT, creationflags=flags)
+                deadline = time.monotonic() + 15
+                while not reachable():
+                    if cancelled():
+                        raise RuntimeError('Programming cancelled')
+                    exit_code = server.poll()
+                    if exit_code is not None or time.monotonic() > deadline:
+                        if exit_code is None:
+                            stop_tree(server)
+                        server_log.seek(0)
+                        for line in server_log.read().decode(errors='replace').splitlines():
+                            output(line)
+                        reason = f'exit code {exit_code}' if exit_code is not None else 'startup timed out'
+                        raise RuntimeError(f'hw_server did not start on {host}:{port} ({reason})')
+                    time.sleep(0.1)
+        env['FH_PROGRAM_HW_SERVER_URL'] = f'tcp:{host}:{port}'
         output('Connecting XSDB. Keep Vitis debug sessions disconnected.')
         process = subprocess.Popen(f'"{os.environ.get("COMSPEC", "cmd.exe")}" /d /s /c ""{paths["xsdb"]}" "{script}""', env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -132,7 +153,8 @@ def launch(root, paths, cancelled, output):
             if line == 'FH_PROGRAM_RUN_OK': completed = True
         process.wait(timeout=5)
         if process.returncode or not completed:
-            raise RuntimeError('JTAG launch failed. Check the XSDB log above; application start was not confirmed.')
+            raise RuntimeError(f'XSDB ended with exit code {process.returncode} without confirming JTAG launch. '
+                               'Check the XSDB output above.')
     finally:
         stop_tree(process)
         if process and process.stdout: process.stdout.close()

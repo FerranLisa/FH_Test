@@ -106,9 +106,11 @@ FSBL ELF and imported platform XSA paths. Defaults use this repository and
 `C:/AMDDesignTools/2025.2/Vitis/bin/xsdb.bat`. Saved selections persist.
 
 Clicking **Program & Run (JTAG)** resets the board and clears retained captures.
-It checks artifacts first, connects to localhost hw_server port 3121 (starting an
-owned server if needed), programs PL, runs FSBL to XFsbl_Exit, then downloads and
-resumes the A53 application. Progress/errors appear as `[JTAG]` lines in the console.
+It checks artifacts first and connects to a local `hw_server` on port 3121. If
+there is no server listening there and Windows has reserved the port, FH_Test
+starts its own server on a port assigned by Windows. It then programs PL, runs
+FSBL to XFsbl_Exit, and downloads and resumes the A53 application. Progress and
+errors appear as `[JTAG]` lines in the console.
 The host sends H after successful launch if UART is connected; require a responding
 application menu before starting capture. No Ethernet export connection is needed.
 

@@ -1,7 +1,7 @@
 # Invoked by FH_Test, using preflight-checked paths in environment variables.
 # Loads volatile PL configuration and PS RAM only. No compilation or flash write.
 proc launch_application {} {
-    connect -url tcp:127.0.0.1:3121
+    connect -url $::env(FH_PROGRAM_HW_SERVER_URL)
     # -set refuses ambiguous multi-board targets before any reset/program action.
     targets -set -filter {name =~ "Cortex-A53 #0"} -timeout 10
     puts "FH_JTAG: resetting system"
