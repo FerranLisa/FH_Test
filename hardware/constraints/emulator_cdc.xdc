@@ -3,6 +3,11 @@
 # first-stage input; retain timing between stages and all AXI CDC constraints.
 set_false_path -to [get_pins -hier -regexp {.*gmax_dual_ring.*/calibrated_reg\[0\]/D}]
 
+# Independent sensor pixel clocks feed registered FVAL levels into the
+# acquisition clock. Only the first destination stage is asynchronous.
+set_false_path -to [get_pins -hier -regexp {.*gmax_dual_ring.*/fv_meta_reg\[[01]\]/D}]
+set_false_path -to [get_pins -hier -regexp {.*gmax_dual_ring.*/.*line_measure.*sync_line_reg\[0\]/D}]
+
 # The RTC seconds interrupt crosses from the battery-backed clock domain.
 # Constrain the second synchronizer stage normally.
 set_false_path -to [get_pins -hier -regexp {.*gmax_dual_ring.*/edge_meta_reg\[2\]/D}]

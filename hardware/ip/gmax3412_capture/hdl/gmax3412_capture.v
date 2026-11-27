@@ -29,7 +29,7 @@ module gmax3412_capture #(parameter WIDTH=4096, HEIGHT=3072, DEPTH=1024, LANES=1
  .roi_mode(control[8]),.src_clk(emu_clk),.dst_clk(clk),.resetn(resetn),.request(go && !selected),
  .fval(emu_fval),.lval(emu_lval),.data(emu_data),.fifo_data(d0),.empty(e0),
  .pop(pop && !selected),.ready(r0),.finished(f0),.overflow(o0),.geometry(g0),.dropped(k0));
- gmax3412_capture_source #(.WIDTH(WIDTH),.HEIGHT(HEIGHT),.DEPTH(DEPTH),.CROP_FULL(1),.DYNAMIC_ROI(1),.LANES(LANES)) rx (
+ gmax3412_capture_source #(.WIDTH(WIDTH),.HEIGHT(HEIGHT),.DEPTH(DEPTH),.DYNAMIC_ROI(1),.LANES(LANES)) rx (
  .roi_mode(control[8]),.src_clk(rx_clk),.dst_clk(clk),.resetn(resetn),.request(go && selected),
  .fval(rx_fval),.lval(rx_lval),.data(rx_data),.fifo_data(d1),.empty(e1),
  .pop(pop && selected),.ready(r1),.finished(f1),.overflow(o1),.geometry(g1),.dropped(k1));

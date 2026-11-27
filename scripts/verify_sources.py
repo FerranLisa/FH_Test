@@ -52,8 +52,8 @@ app = ROOT/'software/app/src'
 main = (app/'main.c').read_text()
 assert main.count('int main(void)') == 1
 assert 'FH_Carrier Bring-Up Test - V31.1' not in main
-assert '#define FH_RELEASE "V35.3"' in (app/'fh_version.h').read_text()
-assert "RELEASE = 'V35.3'" in (ROOT/'software/host/fh_version.py').read_text()
+assert '#define FH_RELEASE "V25.3"' in (app/'fh_version.h').read_text()
+assert "RELEASE = 'V25.3'" in (ROOT/'software/host/fh_version.py').read_text()
 assert 'toggle_phy_tx_delay' not in (app/'fh_eth_server.c').read_text()
 assert 'patch_kfb_phy' not in (ROOT/'scripts/vitis_project.py').read_text()
 for p in app.glob('*'):

@@ -159,6 +159,14 @@ def main():
                     "enable_language(C ASM CXX)\nadd_compile_definitions(FH_MONITOR_AMP=1)"))
             print(f'Application created. Native application sources: {WORKSPACE/APP/"src"}')
         elif stage=='BuildApp':
+            # CreateApp imports files by value. Refresh the maintained capture
+            # controller header even when reusing an existing Vitis workspace.
+            capture_header=ROOT/'software/app/src/dual_stream.h'
+            native_header=WORKSPACE/APP/'src'/capture_header.name
+            source=capture_header.read_bytes()
+            if not native_header.exists() or native_header.read_bytes()!=source:
+                native_header.write_bytes(source)
+                print('Updated dual_stream.h in the native application.',flush=True)
             if client.get_component(name=APP).build()!=build_pb2.BuildResponse.SUCCESS:
                 raise RuntimeError('Application build failed')
         else: raise ValueError(stage)

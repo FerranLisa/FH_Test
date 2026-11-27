@@ -542,8 +542,8 @@ static const GmaxReg8 Gmax10b1200Config[] = {
     {0x2E3FU, 0x00U}, /* SPI 0x003F */
     {0x2E40U, 0x02U}, /* SPI 0x0040 */
     {0x2E41U, 0x03U}, /* SPI 0x0041 */
-    {0x2E42U, 0x4EU}, /* SPI 0x0042 */
-    {0x2E43U, 0x01U}, /* SPI 0x0043 */
+    {0x2E42U, 0xFAU}, /* LINE_TIME = 250 CLK_PIX cycles, 16 lanes / 10 bit */
+    {0x2E43U, 0x00U}, /* LINE_TIME high byte */
     {0x2E44U, 0x02U}, /* SPI 0x0044 */
     {0x2E45U, 0x02U}, /* SPI 0x0045 */
     {0x2E46U, 0x02U}, /* SPI 0x0046 */
@@ -3050,6 +3050,8 @@ static int gmax_upload_10bit_1200_config(void)
     if (gmax_verify_reg8(0x2EAFU, 0x01U, "SDO_TDIG cfg") != XST_SUCCESS) VerifyOk = 0;
     if (gmax_verify_reg8(0x3004U, 0x03U, "MIPI lane count") != XST_SUCCESS) VerifyOk = 0;
     if (gmax_verify_reg8(0x3009U, 0x08U, "Sub-LVDS CHAN_NUM (16 lanes)") != XST_SUCCESS) VerifyOk = 0;
+    if (gmax_verify_reg8(0x2E42U, 0xFAU, "LINE_TIME low (250 cycles)") != XST_SUCCESS) VerifyOk = 0;
+    if (gmax_verify_reg8(0x2E43U, 0x00U, "LINE_TIME high") != XST_SUCCESS) VerifyOk = 0;
     if (gmax_verify_reg8(0x3005U, 0x00U, "CH_CLK_EN") != XST_SUCCESS) VerifyOk = 0;
     if (gmax_verify_reg8(0x3023U, 0xF8U, "PHY CTRL0") != XST_SUCCESS) VerifyOk = 0;
     if (gmax_verify_reg8(0x3024U, 0x14U, "PHY CTRL1") != XST_SUCCESS) VerifyOk = 0;

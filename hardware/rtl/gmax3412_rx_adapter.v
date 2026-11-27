@@ -340,7 +340,7 @@ endmodule
 
 // Synchronize the full-window DMA stream independently of the test pattern.
 // PIXELS selects the current beat directly, so valid and data have no skew.
-module gmax3412_full_frame_sync #(parameter GROUPS=256, ROWS=3072)(
+module gmax3412_full_frame_sync #(parameter GROUPS=256, ROWS=3072, ROI_ROWS=1024)(
     input wire clk, reset, alignment_error, input wire [191:0] data,
     output wire frame_valid, line_valid
 );
@@ -385,9 +385,11 @@ module gmax3412_full_frame_sync #(parameter GROUPS=256, ROWS=3072)(
             END_ONES: state <= (&words) ? END_ZERO1 : ERROR_BEAT;
             END_ZERO1: state <= !(|words) ? END_ZERO2 : ERROR_BEAT;
             END_ZERO2: state <= !(|words) ? END_TAG : ERROR_BEAT;
-            END_TAG: if (row_index == ROWS-1)
-                state <= words == {16{10'h274}} ? WAIT_SOF : ERROR_BEAT;
-            else if (words == {16{10'h0d8}}) begin
+            // The physical EOF determines FVAL. The armed DMA bridge checks
+            // which of these two legal wire geometries was requested.
+            END_TAG: if (words == {16{10'h274}})
+                state <= (row_index == ROWS-1 || row_index == ROI_ROWS-1) ? WAIT_SOF : ERROR_BEAT;
+            else if (row_index < ROWS-1 && words == {16{10'h0d8}}) begin
                 row_index <= row_index + 1'b1;
                 state <= GAP;
             end else state <= ERROR_BEAT;

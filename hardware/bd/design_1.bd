@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0xFC4A82B6BD6D60B6",
+      "boundary_crc": "0xE1AA94ADCCC4F6BE",
       "device": "xczu7ev-ffvc1156-2-i",
       "gen_directory": "gen",
       "name": "design_1",
@@ -517,6 +517,11 @@
       "texp_pins": {
         "direction": "I",
         "left": "1",
+        "right": "0"
+      },
+      "window_spi": {
+        "direction": "O",
+        "left": "3",
         "right": "0"
       }
     },
@@ -4724,7 +4729,7 @@
       },
       "gmax_capture": {
         "vlnv": "fh.local:user:gmax3412_capture:1.0",
-        "ip_revision": "1",
+        "ip_revision": "12",
         "xci_name": "design_1_gmax_capture_0",
         "xci_path": "ip\\design_1_gmax_capture_0\\design_1_gmax_capture_0.xci",
         "inst_hier_path": "gmax_capture",
@@ -5743,6 +5748,76 @@
             "left": "1",
             "right": "0"
           },
+          "fval_a": {
+            "direction": "I",
+            "parameters": {
+              "LAYERED_METADATA": {
+                "value": "undef",
+                "value_src": "default_prop"
+              }
+            }
+          },
+          "fval_b": {
+            "direction": "I",
+            "parameters": {
+              "LAYERED_METADATA": {
+                "value": "undef",
+                "value_src": "default_prop"
+              }
+            }
+          },
+          "lval_a": {
+            "direction": "I",
+            "parameters": {
+              "LAYERED_METADATA": {
+                "value": "undef",
+                "value_src": "default_prop"
+              }
+            }
+          },
+          "lval_b": {
+            "direction": "I",
+            "parameters": {
+              "LAYERED_METADATA": {
+                "value": "undef",
+                "value_src": "default_prop"
+              }
+            }
+          },
+          "rx_clk_a": {
+            "direction": "I",
+            "parameters": {
+              "FREQ_HZ": {
+                "value": "120000000",
+                "value_src": "user_prop"
+              },
+              "PHASE": {
+                "value": "0.0",
+                "value_src": "default_prop"
+              },
+              "CLK_DOMAIN": {
+                "value": "design_1_capture_rx_clk",
+                "value_src": "default_prop"
+              }
+            }
+          },
+          "rx_clk_b": {
+            "direction": "I",
+            "parameters": {
+              "FREQ_HZ": {
+                "value": "120000000",
+                "value_src": "user_prop"
+              },
+              "PHASE": {
+                "value": "0.0",
+                "value_src": "default_prop"
+              },
+              "CLK_DOMAIN": {
+                "value": "design_1_capture_b_rx_clk",
+                "value_src": "default_prop"
+              }
+            }
+          },
           "trigger_pair": {
             "direction": "O"
           },
@@ -5750,6 +5825,11 @@
             "direction": "O"
           },
           "texp_drive": {
+            "direction": "O",
+            "left": "3",
+            "right": "0"
+          },
+          "window_spi": {
             "direction": "O",
             "left": "3",
             "right": "0"
@@ -5784,7 +5864,7 @@
       },
       "gmax_capture_b": {
         "vlnv": "fh.local:user:gmax3412_capture:1.0",
-        "ip_revision": "1",
+        "ip_revision": "12",
         "xci_name": "design_1_gmax_capture_b_0",
         "xci_path": "ip\\design_1_gmax_capture_b_0\\design_1_gmax_capture_b_0.xci",
         "inst_hier_path": "gmax_capture_b",
@@ -7646,57 +7726,63 @@
       "capture_b_rx_clk_1": {
         "ports": [
           "capture_b_rx_clk",
-          "gmax_capture_b/rx_clk",
-          "monitor_b/rx_clk"
+          "monitor_b/rx_clk",
+          "gmax_dual_ring/rx_clk_b",
+          "gmax_capture_b/rx_clk"
         ]
       },
       "capture_b_rx_data_1": {
         "ports": [
           "capture_b_rx_data",
-          "gmax_capture_b/rx_data",
-          "monitor_b/pixels"
+          "monitor_b/pixels",
+          "gmax_capture_b/rx_data"
         ]
       },
       "capture_b_rx_fval_1": {
         "ports": [
           "capture_b_rx_fval",
-          "gmax_capture_b/rx_fval",
-          "monitor_b/fval"
+          "monitor_b/fval",
+          "gmax_dual_ring/fval_b",
+          "gmax_capture_b/rx_fval"
         ]
       },
       "capture_b_rx_lval_1": {
         "ports": [
           "capture_b_rx_lval",
-          "gmax_capture_b/rx_lval",
-          "monitor_b/lval"
+          "monitor_b/lval",
+          "gmax_dual_ring/lval_b",
+          "gmax_capture_b/rx_lval"
         ]
       },
       "capture_rx_clk_1": {
         "ports": [
           "capture_rx_clk",
-          "gmax_capture/rx_clk",
-          "monitor_a/rx_clk"
+          "monitor_a/rx_clk",
+          "gmax_dual_ring/rx_clk_a",
+          "gmax_capture/rx_clk"
         ]
       },
       "capture_rx_data_1": {
         "ports": [
           "capture_rx_data",
-          "gmax_capture/rx_data",
-          "monitor_a/pixels"
+          "monitor_a/pixels",
+          "gmax_capture/rx_data"
         ]
       },
       "capture_rx_fval_1": {
         "ports": [
           "capture_rx_fval",
-          "gmax_capture/rx_fval",
-          "monitor_a/fval"
+          "monitor_a/fval",
+          "gmax_dual_ring/fval_a",
+          "gmax_capture/rx_fval"
         ]
       },
       "capture_rx_lval_1": {
         "ports": [
           "capture_rx_lval",
-          "gmax_capture/rx_lval",
-          "monitor_a/lval"
+          "monitor_a/lval",
+          "gmax_dual_ring/lval_a",
+          "gmax_capture/rx_lval"
         ]
       },
       "fh_export_dma_mm2s_introut": {
@@ -7791,6 +7877,12 @@
           "gmax_dual_ring_ctrl/gpio2_io_i"
         ]
       },
+      "gmax_dual_ring_window_spi": {
+        "ports": [
+          "gmax_dual_ring/window_spi",
+          "window_spi"
+        ]
+      },
       "gmax_emu_clock_clk_out1": {
         "ports": [
           "gmax_emu_clock/clk_out1",
@@ -7810,16 +7902,11 @@
           "gmax_dual_ring_ctrl/s_axi_aclk",
           "gmax_capture_dma_b/s_axi_lite_aclk",
           "gmax_capture_dma_b/m_axi_s2mm_aclk",
-          "gmax_capture/clk",
-          "gmax_capture_b/clk",
           "pl_ddr_smc/aclk1",
           "fh_router_0/clk",
           "fh_export_dma/s_axi_lite_aclk",
           "fh_export_dma/m_axi_mm2s_aclk",
           "fh_export_dma/m_axi_s2mm_aclk",
-          "gmax_capture/emu_clk",
-          "gmax_capture_b/emu_clk",
-          "gmax_dual_ring/clk",
           "monitor_ctrl/aclk",
           "monitor_a/ctrl_clk",
           "monitor_a_cfg/s_axi_aclk",
@@ -7830,7 +7917,12 @@
           "monitor_b_cfg/s_axi_aclk",
           "monitor_b_info/s_axi_aclk",
           "monitor_b_dma/s_axi_lite_aclk",
-          "monitor_b_dma/m_axi_s2mm_aclk"
+          "monitor_b_dma/m_axi_s2mm_aclk",
+          "gmax_dual_ring/clk",
+          "gmax_capture/clk",
+          "gmax_capture/emu_clk",
+          "gmax_capture_b/clk",
+          "gmax_capture_b/emu_clk"
         ]
       },
       "gmax_emu_clock_locked": {
@@ -7853,11 +7945,8 @@
           "gmax_capture_ctrl_b/s_axi_aresetn",
           "gmax_dual_ring_ctrl/s_axi_aresetn",
           "gmax_capture_dma_b/axi_resetn",
-          "gmax_capture/resetn",
-          "gmax_capture_b/resetn",
           "fh_router_0/resetn",
           "fh_export_dma/axi_resetn",
-          "gmax_dual_ring/resetn",
           "monitor_ctrl/aresetn",
           "monitor_a/resetn",
           "monitor_a_cfg/s_axi_aresetn",
@@ -7866,7 +7955,10 @@
           "monitor_b/resetn",
           "monitor_b_cfg/s_axi_aresetn",
           "monitor_b_info/s_axi_aresetn",
-          "monitor_b_dma/axi_resetn"
+          "monitor_b_dma/axi_resetn",
+          "gmax_dual_ring/resetn",
+          "gmax_capture/resetn",
+          "gmax_capture_b/resetn"
         ]
       },
       "gmax_emu_zero_dout": {

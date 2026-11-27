@@ -14,6 +14,7 @@ update_ip_catalog
 add_files -norecurse [glob [file join $hw rtl *.v]]
 add_files -norecurse [file join $hw bd design_1.bd]
 open_bd_design [get_files */design_1.bd]
+source [file join $hw scripts upgrade_capture_cells.tcl]
 source [file join $hw scripts add_router.tcl]
 source [file join $hw scripts connect_frame_time.tcl]
 set_property SYNTH_CHECKPOINT_MODE None [get_files */design_1.bd]

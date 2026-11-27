@@ -17,6 +17,33 @@ static void dual_cmd(u32 op,u32 value)
     DualControl=((DualControl^0x80000000U)&0x80000000U)|(op<<28)|((value&0xFFFFFU)<<8)|1U;
     cap_write(DUAL_GPIO,DualControl);usleep(2U);
 }
+static void dual_dump_timing(void)
+{
+    u32 saved=DualControl;
+    if(dual_diag(0x30)==0x54524331U) {
+        int extended=dual_diag(0x35)==0x54524332U;
+        u32 summary=dual_diag(0x31);
+        u32 count=summary&511U;
+        xil_printf("FH_TRACE BEGIN %u %u %u\r\n",dual_diag(0x34),count,(summary>>9)&1U);
+        for(u32 i=0;i<count && i<256U;i++) {
+            DualControl=(DualControl&~0xff00U)|(i<<8);
+            u32 stamp=dual_diag(0x32);
+            u32 flags=dual_diag(0x33);
+            if(extended) xil_printf("FH_TRACE ROW %08x %08x %08x\r\n",stamp,flags,dual_diag(0x36));
+            else xil_printf("FH_TRACE ROW %08x %08x\r\n",stamp,flags);
+        }
+        if(extended) for(u32 eye=0;eye<2;eye++) {
+            u32 base=0x40+3*eye;
+            u32 delay=dual_diag(base);
+            u32 period=dual_diag(base+1);
+            xil_printf("FH_TRACE LINES %u %u %u %u\r\n",eye,delay,period,dual_diag(base+2));
+            xil_printf("FH_TRACE SWITCH %u %u\r\n",eye,dual_diag(0x46+eye));
+        }
+        xil_printf("FH_TRACE END\r\n");
+    } else xil_printf("FH_TRACE UNAVAILABLE\r\n");
+    DualControl=saved;
+    cap_write(DUAL_GPIO,saved);
+}
 static int gmax_fpga_pulse(unsigned mask, u32 duration)
 {
     if (!gmax_pl_ready() || DualOwnershipBlocked || !duration || duration>0xfffffU)
@@ -205,6 +232,7 @@ static void test_gmax3412_dual(void)
         usleep(20);
     } while(status&1U);
     counts[0]=dual_diag(3);counts[1]=dual_diag(5);
+    dual_dump_timing();
     xil_printf("  Pairs: full=%lu ROI=%lu elapsed=%lu us timer slots=%lu. [GMAX3412-A + GMAX3412-B]\r\n",
       (unsigned long)counts[0],(unsigned long)counts[1],(unsigned long)dual_diag(10),(unsigned long)dual_diag(11));
     if((status&7U)!=2U||dual_diag(4)||counts[0]+counts[1]==0U) {ok=0;goto cleanup;}
@@ -216,6 +244,12 @@ cleanup:
 #endif
     if(!ok) xil_printf("  Controller status=0x%08lx error=%lu DMA=0x%08lx capture=0x%08lx [GMAX3412-A + GMAX3412-B]\r\n",
       (unsigned long)dual_diag(1),(unsigned long)dual_diag(4),(unsigned long)dual_diag(6),(unsigned long)dual_diag(7));
+    if(!ok && dual_diag(4)==12U)
+        xil_printf("  Stereo SOF arrived without an armed receiver or matching trigger.\r\n");
+    if(!ok && dual_diag(4)==13U)
+        xil_printf("  TEXP ended during previous readout; fixed exposure could not be verified.\r\n");
+    if(!ok && dual_diag(4)==14U)
+        xil_printf("  Sensor window missed fixed TEXP falling-edge deadline.\r\n");
     DualLastCaptureVerified=ok && !DualOwnershipBlocked &&
         ((dual_diag(1)&1U)==0U) && ((plr_diag(1)&1U)==0U) &&
         ((burst_diag(1)&1U)==0U);
@@ -277,6 +311,23 @@ static int fh_frame_import_v30_lut(void)
     if ((dual_diag(1)&1U) || (plr_diag(1)&1U) || (burst_diag(1)&1U))
         goto fail;
     fh_frame_set_ddr_ready(1);
+    if (count>1U) {
+        u32 roi_steps=0U, full_steps=0U, roi_total=0U, full_total=0U;
+        for (i=1U;i<count;++i) {
+            if (snapshot[i].FrameID-snapshot[i-1U].FrameID!=1U) continue;
+            u32 slots=snapshot[i].TimerPulse-snapshot[i-1U].TimerPulse;
+            if (snapshot[i-1U].ROI) {
+                ++roi_total;
+                if (slots==1U) ++roi_steps;
+            } else {
+                ++full_total;
+                if (slots==2U) ++full_steps;
+            }
+        }
+        xil_printf("  Retained stereo trigger intervals: after ROI at 4 ms %lu/%lu; after FULL at 8 ms %lu/%lu.\r\n",
+                   (unsigned long)roi_steps,(unsigned long)roi_total,
+                   (unsigned long)full_steps,(unsigned long)full_total);
+    }
     xil_printf("  " FH_RELEASE " Ethernet: imported %lu valid stereo LUT entries (FrameID %lu..%lu). [GMAX3412-A + GMAX3412-B]\r\n",
         (unsigned long)count,(unsigned long)snapshot[0].FrameID,
         (unsigned long)snapshot[count-1U].FrameID);

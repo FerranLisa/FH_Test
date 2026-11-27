@@ -1,6 +1,13 @@
-# FH_Test — V35.3
+# FH_Test — V25.3
 
-Two physical GMAX3412 receivers on FH_Carrier. Startup reports independent initialization and 16-lane training results. UART 8 and 9 open sensor diagnostics. Enter C1 or C2 with an optional exposure in microseconds, followed by Enter (for example C2:2000). The default is 1000 us. U:3000 sets a 3000 us exposure on both sensors for this run and asks for R and duration. Plain U also prompts for exposure (default 1000 us). U arms both receivers and strobes both TEXP1 lines together. R selects how many central 4096 × 1024 crops to retain between full frames. Both sensors read full frames. Busy 4 ms timer slots are skipped. N exports retained images; Ethernet sensor indices are 0 and 1.
+Two physical GMAX3412 receivers on FH_Carrier. Startup reports independent initialization and 16-lane training results. UART 8 and 9 open sensor diagnostics. Enter C1 or C2 with an optional exposure in microseconds, followed by Enter (for example C2:2000). The default is 1000 us. U:3000 sets a 3000 us exposure on both sensors for this run and asks for R and duration. Plain U also prompts for exposure (default 1000 us). U arms both receivers and strobes both TEXP1 lines together. R selects the number of native 4096 × 1024 ROI pairs (0–24) following each 4096 × 3072 FULL pair. Both sensors send the selected geometry directly to the rolling buffer. Busy 4 ms timer slots are skipped. N exports retained images; Ethernet sensor indices are 0 and 1.
+
+## Changes in V25.3
+
+- Both GMAX3412 sensors use a 250-cycle line period (2.500 µs measured). At 1000 µs exposure, the PL controller can start the next exposure during the previous readout and update the sensor window over SPI after both sensors finish reading. The router remains available for downstream cropping and subsampling.
+- **Board validation.** With R=24 over one second, the carrier captured 10 FULL and 230 ROI stereo pairs. All 9 retained FULL-to-ROI intervals were 8 ms and all 225 retained intervals following an ROI were 4 ms. The two FULL-to-ROI transitions in the timing trace completed SPI 40.950 µs before TEXP fell. XSim predicted 40.983 µs under the corresponding timing model.
+- **Capture timing** in FH_Test.py displays hardware timestamps for timer ticks, stereo TEXP edges, end of readout, DMA confirmations and window SPI transactions. The firmware dumps the first 256 event cycles over UART after capture. The line counts and SPI margin help diagnose missed slots.
+- To reproduce the simulation, run `vivado -mode batch -source hardware/scripts/test_gmax_overlap.tcl -tclargs transitions` from the project root. The tests cover native frame geometry, fixed exposure, timer slots and a missed window deadline.
 
 ## Changes in V35.3
 
@@ -87,7 +94,7 @@ is separate.
 
 Vivado names the implementation bitstream `FH_Carrier_Bringup_top.bit` after the top-level RTL module. The export step copies it to `hardware/exports/FH_Firmware.bit` and writes the matching `FH_Firmware.ltx` debug probes and `FH_Firmware.xsa` hardware handoff in the same directory. Vitis uses that XSA to build `FH_TestPlatform`.
 
-## Build V35.3
+## Build V25.3
 
 Close Vivado and Vitis, then run the following command from the FH_Test project root.
 
@@ -206,7 +213,7 @@ Initial platform settings: standalone stdin/stdout `psu_uart_0`; lwip220 RAW_API
 
 Edit the native Vitis `software/workspace/FH_TestApp/src` after creation.
 The tracked `software/app/src` is the creation snapshot; maintain it alongside
-native edits for reproducibility. Build commands never silently reimport sources.
+native edits for reproducibility. BuildApp refreshes dual_stream.h from software/app/src before compiling the native application.
 
 ## Automated export and software build
 

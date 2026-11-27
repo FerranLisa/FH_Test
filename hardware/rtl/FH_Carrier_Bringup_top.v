@@ -187,7 +187,7 @@ module FH_Carrier_Bringup_top
     // bit 31     = selected lane raw ISERDES activity seen
     // ============================================================
 
-    wire [3:0] texp_drive;
+    wire [3:0] texp_drive, window_spi;
     wire [14:0] gmax_a_ctrl;
     wire [31:0] gmax_a_status;
 
@@ -199,14 +199,14 @@ module FH_Carrier_Bringup_top
     assign GMX_A_PWR_EN      = gmax_a_ctrl[0];
     assign GMX_A_CLK_EN      = gmax_a_ctrl[1];
     assign GMX_A_SYS_RST_N   = gmax_a_ctrl[2];
-    assign GMX_A_CCI_EN      = gmax_a_ctrl[3];
-    assign GMX_A_XCE_SLAMODE = gmax_a_ctrl[4];
+    assign GMX_A_CCI_EN      = window_spi[3] ? 1'b0 : gmax_a_ctrl[3];
+    assign GMX_A_XCE_SLAMODE = window_spi[3] ? window_spi[2] : gmax_a_ctrl[4];
 
     assign GMX_A_TEXP1       = texp_drive[0];
     assign GMX_A_TEXP2       = texp_drive[2];
 
-    assign GMX_A_SPI_SCK     = gmax_a_ctrl[7];
-    assign GMX_A_SPI_SDI     = gmax_a_ctrl[8];
+    assign GMX_A_SPI_SCK     = window_spi[3] ? window_spi[1] : gmax_a_ctrl[7];
+    assign GMX_A_SPI_SDI     = window_spi[3] ? window_spi[0] : gmax_a_ctrl[8];
 
 
     // ============================================================
@@ -234,14 +234,14 @@ module FH_Carrier_Bringup_top
     assign GMX_B_PWR_EN      = gmax_b_ctrl[0];
     assign GMX_B_CLK_EN      = gmax_b_ctrl[1];
     assign GMX_B_SYS_RST_N   = gmax_b_ctrl[2];
-    assign GMX_B_CCI_EN      = gmax_b_ctrl[3];
-    assign GMX_B_XCE_SLAMODE = gmax_b_ctrl[4];
+    assign GMX_B_CCI_EN      = window_spi[3] ? 1'b0 : gmax_b_ctrl[3];
+    assign GMX_B_XCE_SLAMODE = window_spi[3] ? window_spi[2] : gmax_b_ctrl[4];
 
     assign GMX_B_TEXP1       = texp_drive[1];
     assign GMX_B_TEXP2       = texp_drive[3];
 
-    assign GMX_B_SPI_SCK     = gmax_b_ctrl[7];
-    assign GMX_B_SPI_SDI     = gmax_b_ctrl[8];
+    assign GMX_B_SPI_SCK     = window_spi[3] ? window_spi[1] : gmax_b_ctrl[7];
+    assign GMX_B_SPI_SDI     = window_spi[3] ? window_spi[0] : gmax_b_ctrl[8];
 
 
     // ============================================================
@@ -284,6 +284,7 @@ module FH_Carrier_Bringup_top
         .c0_ddr4_dqs_c(c0_ddr4_dqs_c),
         .c0_ddr4_dqs_t(c0_ddr4_dqs_t),
         .texp_drive(texp_drive),
+        .window_spi(window_spi),
         .texp_pins({GMX_B_TEXP1,GMX_A_TEXP1}),
         .capture_rx_clk          (gmax_a_pixel_clk),
         .capture_rx_fval         (gmax_a_frame_valid),

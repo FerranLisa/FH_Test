@@ -390,6 +390,16 @@ class FHTest(QtWidgets.QMainWindow):
         self.diag = self.button(console_controls, 'Ethernet diagnostics (D)', lambda: self.send(b'D'))
         self.button(console_controls, 'Save UART log…', self.save_log)
         self.button(console_controls, 'Clear console', lambda: self.console.clear())
+        self.trace_partial = ''
+        self.trace_rate = 0
+        self.trace_dialog = QtWidgets.QDialog(self)
+        self.trace_dialog.setWindowTitle('Capture timing')
+        self.trace_dialog.resize(900, 520)
+        self.trace_view = QtWidgets.QPlainTextEdit(self.trace_dialog)
+        QtWidgets.QVBoxLayout(self.trace_dialog).addWidget(self.trace_view)
+        self.trace_view.setReadOnly(True)
+        self.trace_view.setPlaceholderText('Measurements appear after a periodic capture with trace-enabled firmware.')
+        self.button(console_controls, 'Capture timing', self.trace_dialog.show)
         console_controls.addStretch()
         manual_controls = QtWidgets.QHBoxLayout()
         layout.addLayout(manual_controls)
@@ -508,6 +518,7 @@ class FHTest(QtWidgets.QMainWindow):
             if b'FH eMMC upload armed' in self.worker.arm_reply:
                 self.worker.armed.set()
         text = data.decode('utf-8', errors='replace')
+        self.feed_timing(text)
         self.log(text)
         old = self.sequence.state
         events = self.sequence.feed(text)
@@ -576,6 +587,74 @@ class FHTest(QtWidgets.QMainWindow):
             self.sequence.reset()
         self.update_controls()
 
+    def feed_timing(self, text):
+        lines = (self.trace_partial + text).split('\n')
+        self.trace_partial = lines.pop()[-256:]
+        events = ('Tick', 'TEXP A', 'TEXP B', 'EOF A', 'EOF B',
+                  'DMA confirmed A', 'DMA confirmed B', 'SPI start', 'SPI end')
+        for line in lines:
+            fields = line.strip().split()
+            if fields == ['FH_TRACE', 'UNAVAILABLE']:
+                self.trace_view.setPlainText('The FPGA did not report the capture trace signature. Check the programmed bitstream.')
+            elif fields[:1] == ['Pairs:'] and not self.trace_view.toPlainText():
+                self.trace_view.setPlainText('Capture completed without a UART timing trace. Check the application ELF loaded by JTAG.')
+            if fields[:2] == ['FH_TRACE', 'BEGIN'] and len(fields) == 5:
+                if not all(v.isascii() and v.isdigit() and len(v) <= 10 for v in fields[2:]):
+                    continue
+                self.trace_rate, self.trace_expected, limited = map(int, fields[2:])
+                self.trace_seen = 0
+                self.trace_origin = self.trace_texp = None
+                self.trace_switch_spi_end = None
+                self.trace_switch_active = False
+                self.trace_view.setPlainText('First 256 event cycles retained.' if limited else 'All recorded event cycles.')
+                self.trace_view.appendPlainText('Time (µs) | Since TEXP A (µs) | Tick | Events | Controller state')
+            elif self.trace_rate and fields[:2] == ['FH_TRACE', 'SWITCH'] and len(fields) == 4:
+                if all(v.isascii() and v.isdigit() and len(v) <= 10 for v in fields[2:]):
+                    eye, rows = map(int, fields[2:])
+                    self.trace_view.appendPlainText(f'First overlapping FULL sensor {eye+1}: {rows} LVAL pulses (expected 3072 if triggered)')
+            elif self.trace_rate and fields[:2] == ['FH_TRACE', 'LINES'] and len(fields) == 6:
+                if all(v.isascii() and v.isdigit() and len(v) <= 10 for v in fields[2:]):
+                    eye, delay, period, rows = map(int, fields[2:])
+                    self.trace_view.appendPlainText(
+                        f'First FULL sensor {eye+1}: {rows} LVAL pulses, TEXP fall to first line '
+                        f'{delay/self.trace_rate:.3f} us, first line period {period/self.trace_rate:.3f} us')
+            elif self.trace_rate and fields[:2] == ['FH_TRACE', 'ROW'] and len(fields) in (4, 5):
+                if any(len(v) != 8 or any(c not in '0123456789abcdefABCDEF' for c in v) for v in fields[2:]):
+                    continue
+                stamp, flags = (int(v, 16) for v in fields[2:4])
+                detail = int(fields[4], 16) if len(fields) == 5 else 0
+                if self.trace_origin is None:
+                    self.trace_origin = stamp
+                if flags & 2:
+                    self.trace_texp = stamp
+                    self.trace_switch_active = bool(detail & 4)
+                    self.trace_switch_spi_end = None
+                elapsed = ((stamp - self.trace_origin) & 0xffffffff) / self.trace_rate
+                since = '—' if self.trace_texp is None else f'{((stamp-self.trace_texp) & 0xffffffff)/self.trace_rate:.3f}'
+                names = ', '.join(name for bit, name in enumerate(events) if flags & (1 << bit))
+                direction = 'ROI to FULL overlap' if flags & (1 << 10) else 'FULL to ROI overlap'
+                extra = [name for bit, name in enumerate(('TEXP fall A', 'TEXP fall B', direction))
+                         if detail & (1 << bit)]
+                if self.trace_switch_active and flags & (1 << 8):
+                    self.trace_switch_spi_end = stamp
+                if self.trace_switch_active and detail & 1:
+                    if self.trace_switch_spi_end is None:
+                        extra.append('window SPI end missing before TEXP fall')
+                    else:
+                        margin = ((stamp - self.trace_switch_spi_end) & 0xffffffff) / self.trace_rate
+                        extra.append(f'window ready {margin:.3f} us before TEXP fall')
+                    self.trace_switch_active = False
+                names = ', '.join(filter(None, [names, *extra]))
+                geometry = 'ROI' if flags & (1 << 10) else 'FULL'
+                self.trace_view.appendPlainText(
+                    f'{elapsed:.3f} | {since} | {flags >> 24} | {names} | '
+                    f'FSM={(flags >> 16) & 255} SPI={(flags >> 13) & 7} '
+                    f'FVAL B/A={(flags >> 11) & 3:02b} window={geometry} skip={(flags >> 9) & 1}')
+                self.trace_seen += 1
+            elif self.trace_rate and fields == ['FH_TRACE', 'END']:
+                self.trace_view.appendPlainText(f'Received {self.trace_seen}/{self.trace_expected} records.')
+                self.trace_rate = 0
+
     def start_capture(self):
         if self.sequence.state == 'export':
             self.pending_capture = True
@@ -591,6 +670,8 @@ class FHTest(QtWidgets.QMainWindow):
             return
         self.invalidate_catalog()
         self.new_session()
+        self.trace_view.clear()
+        self.trace_rate = 0
         self.send(command)
         self.set_deadline()
         self.notice('Capture setup started. Displayed images, if any, belong to the previous selection.')

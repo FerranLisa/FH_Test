@@ -5,9 +5,6 @@ if {$stage ni {synth implement export}} {error "Stage must be synth, implement o
 open_project [file join $hw vivado FH_Firmware.xpr]
 set_param general.maxThreads 8
 if {$stage eq "synth"} {
-    open_bd_design [get_files */design_1.bd]
-    source [file join $hw scripts connect_frame_time.tcl]
-    validate_bd_design
     # An edited .bd can still be marked validated with stale Verilog and checkpoints.
     # Start a requested synthesis from regenerated HDL, including its dependent impl run.
     set bd_file [get_files */design_1.bd]
@@ -17,7 +14,39 @@ if {$stage eq "synth"} {
         }
     }
     if {[get_property STATUS [get_runs synth_1]] ne "Not started"} {reset_run synth_1}
+	set_property AUTO_INCREMENTAL_CHECKPOINT 0 [get_runs synth_1]
+	set_property INCREMENTAL_CHECKPOINT {} [get_runs synth_1]
+    update_ip_catalog -rebuild
+    open_bd_design $bd_file
+    source [file join $hw scripts upgrade_capture_cells.tcl]
+    source [file join $hw scripts connect_frame_time.tcl]
+    reset_target all $bd_file
+    validate_bd_design -force
+    save_bd_design
     generate_target -force all $bd_file
+
+    # Inspect each generated IP manifest, including the actual shared HDL it references.
+    # XCI names of the two capture bridges in design_1.bd.
+    foreach instance {design_1_gmax_capture_0 design_1_gmax_capture_b_0} {
+        set directory [file join $hw bd gen ip $instance]
+        set fd [open [file join $directory ${instance}.xml] r]
+        set manifest [read $fd]
+        close $fd
+        foreach source [glob [file join $hw ip gmax3412_capture hdl *.v]] {
+            set filename [file tail $source]
+            set pattern [format {<[^<>]*name>([^<>]*/%s)</[^<>]*name>} [string map {. {\.}} $filename]]
+            if {![regexp $pattern $manifest -> relative]} {error "$instance does not reference $filename"}
+            set generated [file normalize [file join $directory $relative]]
+            set fd [open $source r]
+            set expected [read $fd]
+            close $fd
+            set fd [open $generated r]
+            set actual [read $fd]
+            close $fd
+            if {$actual ne $expected} {error "Stale $instance HDL: $generated differs from $source"}
+        }
+        puts "Verified generated capture HDL: $instance"
+    }
     set fd [open [file join $hw bd gen synth design_1.v] r]
     set hdl [read $fd]
     close $fd

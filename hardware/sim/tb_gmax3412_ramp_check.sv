@@ -9,6 +9,11 @@ module tb_gmax3412_ramp_check;
                                 .data(data), .error(alignment_error));
     wire [3:0] state;
     wire fval,lval;
+    wire roi_fval,roi_lval;
+    integer roi_beats=0,roi_errors=0;
+    gmax3412_full_frame_sync #(.GROUPS(2),.ROWS(6),.ROI_ROWS(2)) roi_decoder(
+        .clk(clk),.reset(reset),.alignment_error(alignment_error),.data(data),
+        .frame_valid(roi_fval),.line_valid(roi_lval));
     integer groups_seen=0, lines_seen=0, frames_seen=0, malformed=0;
     integer group_in_test, lane_index, expected_pixel;
     reg check_dma_data=0;
@@ -16,6 +21,8 @@ module tb_gmax3412_ramp_check;
     gmax3412_full_frame_sync #(.GROUPS(2),.ROWS(2)) decoder(
         .clk(clk),.reset(reset),.alignment_error(alignment_error),.data(data),.frame_valid(fval),.line_valid(lval));
     always @(posedge clk) begin
+        if (roi_lval && roi_fval) roi_beats=roi_beats+1;
+        if (roi_lval && !roi_fval) roi_errors=roi_errors+1;
         if (fval && lval) begin
             groups_seen=groups_seen+1;
             if (check_dma_data) begin
@@ -90,6 +97,8 @@ module tb_gmax3412_ramp_check;
     initial begin
         send(0); reset=0;
         run_frame(0,8);
+        if (roi_beats!=4 || roi_errors!=0 || roi_fval)
+            $fatal(1,"Native ROI EOF or pixel count incorrect");
         if (groups_seen!=4 || lines_seen!=2 || frames_seen!=1 || malformed!=0)
             $fatal(1,"DMA qualifiers did not identify the full image");
         late_lanes=16'h3051; // D0, D4, D6, D12 and D13 from the ILA capture

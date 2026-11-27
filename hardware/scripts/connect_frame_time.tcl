@@ -3,8 +3,14 @@ set time_ps [get_bd_cells zynq_ultra_ps_e_0]
 if {![get_property CONFIG.PSU__IRQ_P2F_RTC_SECONDS__INT $time_ps]} {
     set_property CONFIG.PSU__IRQ_P2F_RTC_SECONDS__INT 1 $time_ps
 }
-if {![llength [get_bd_pins -quiet gmax_dual_ring/texp_drive]]} {
+if {![llength [get_bd_pins -quiet gmax_dual_ring/lval_a]]} {
     update_module_reference [get_ips design_1_gmax_dual_ring_0]
+}
+foreach {port pin} {capture_rx_fval fval_a capture_b_rx_fval fval_b capture_rx_lval lval_a capture_b_rx_lval lval_b capture_rx_clk rx_clk_a capture_b_rx_clk rx_clk_b} {
+    set sink [get_bd_pins gmax_dual_ring/$pin]
+    if {![llength [get_bd_nets -quiet -of_objects $sink]]} {
+        connect_bd_net [get_bd_ports $port] $sink
+    }
 }
 if {![llength [get_bd_ports -quiet texp_pins]]} {
     create_bd_port -dir I -from 1 -to 0 texp_pins
@@ -32,6 +38,12 @@ if {$port_net eq ""} {
 set driver_net [get_bd_nets -quiet -of_objects $pulse_driver]
 if {$driver_net eq "" || $driver_net ne [get_bd_nets -quiet -of_objects $pulse_port]} {
     error "TEXP output port must be driven by gmax_dual_ring/texp_drive"
+}
+if {![llength [get_bd_ports -quiet window_spi]]} {
+    create_bd_port -dir O -from 3 -to 0 window_spi
+}
+if {![llength [get_bd_nets -quiet -of_objects [get_bd_ports window_spi]]]} {
+    connect_bd_net [get_bd_pins gmax_dual_ring/window_spi] [get_bd_ports window_spi]
 }
 source [file join [file dirname [info script]] connect_monitor.tcl]
 save_bd_design

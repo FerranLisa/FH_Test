@@ -7,6 +7,10 @@ $root = Split-Path $PSScriptRoot -Parent
 $project = Join-Path $root 'hardware/vivado/FH_Firmware.xpr'
 $hardware = Join-Path $PSScriptRoot 'hardware.ps1'
 
+# Refresh the packaged capture core before Vivado opens the main design.
+& 'C:\AMDDesignTools\2025.2\Vivado\bin\vivado.bat' -mode batch -notrace -source (Join-Path $root 'hardware/scripts/refresh_capture_package.tcl') -nolog -nojournal
+if ($LASTEXITCODE -ne 0) { throw 'Capture IP packaging failed' }
+
 $stages = @('Synthesis', 'Implementation')
 if (-not (Test-Path -LiteralPath $project -PathType Leaf)) {
     $stages = @('Create') + $stages

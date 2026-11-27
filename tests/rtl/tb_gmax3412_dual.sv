@@ -4,12 +4,38 @@ module tb_gmax3412_dual;
  parameter [31:0] PULSE_BASE=0;
  reg clk=0;always #4 clk=~clk;
  reg resetn=0,calib_ready=1;reg [31:0] control=0;wire [31:0] status;
- wire [3:0] texp_drive;
- wire [31:0] awaddr,wdata,araddr;wire awvalid,wvalid,arvalid,bready,rready,trigger_pair,readout_pair;
+ wire [1:0] fvals;
+ wire trigger_pair;
+ wire [3:0] texp_drive, window_spi;
+ reg [23:0] spi_transaction;
+ integer spi_bits=0;
+ reg [7:0] start_hi=0, height_hi=12;
+ always @(negedge window_spi[2]) spi_bits=0;
+ always @(posedge window_spi[1]) if(window_spi[3] && !window_spi[2]) begin
+   spi_transaction={spi_transaction[22:0],window_spi[0]};
+   spi_bits=spi_bits+1;
+ end
+ always @(posedge window_spi[2]) if(window_spi[3] && resetn) begin
+   if(spi_bits!=24) $fatal(1,"Incomplete SPI write");
+   case(spi_transaction[23:8])
+     16'h001e: start_hi=spi_transaction[7:0];
+     16'h0020: height_hi=spi_transaction[7:0];
+     default: $fatal(1,"Unexpected SPI register");
+   endcase
+ end
+ integer window_frame=0;
+ always @(negedge dut.running) window_frame=0;
+ always @(posedge trigger_pair) if(dut.running) begin
+   if(!window_spi[2] || {start_hi,height_hi} !==
+      (window_frame==0 ? 16'h000c : 16'h0404))
+     $fatal(1,"Wrong sensor geometry at trigger");
+   window_frame=(window_frame==LIVE_R) ? 0 : window_frame+1;
+ end
+ wire [31:0] awaddr,wdata,araddr;wire awvalid,wvalid,arvalid,bready,rready,readout_pair;
  reg awready=0,wready=0,arready=0,bvalid=0,rvalid=0;
  reg [1:0] bresp=0,rresp=0;reg [31:0] rdata=0;
  wire [2:0] awprot,arprot;wire [3:0] wstrb;
- gmax3412_dual_ring #(.RESET_WAIT(12),.POLL_LIMIT(200000),.TICKS_PER_US(1),.IMAGE_WIDTH(16),.BUFFER_BYTES(32'd262144)) dut(.*, .monitor_full_trigger(), .monitor_frame_id(), .rtc_seconds_irq(1'b0), .texp_pins(texp_drive[1:0]),
+ gmax3412_dual_ring #(.RESET_WAIT(12),.POLL_LIMIT(200000),.TICKS_PER_US(1),.IMAGE_WIDTH(16),.BUFFER_BYTES(32'd262144)) dut(.*, .rx_clk_a(clk),.rx_clk_b(clk),.fval_a(fvals[0]), .fval_b(fvals[1]), .monitor_full_trigger(), .monitor_frame_id(), .rtc_seconds_irq(1'b0), .texp_pins(texp_drive[1:0]),
  .m_axi_awaddr(awaddr),.m_axi_awprot(awprot),.m_axi_awvalid(awvalid),.m_axi_awready(awready),
  .m_axi_wdata(wdata),.m_axi_wstrb(wstrb),.m_axi_wvalid(wvalid),.m_axi_wready(wready),
  .m_axi_bresp(bresp),.m_axi_bvalid(bvalid),.m_axi_bready(bready),
@@ -36,7 +62,7 @@ module tb_gmax3412_dual;
  reg src_init=0,src_start=0;reg [1:0] src_stop=0;
  reg [31:0] capture_control[2];
  wire [31:0] capture_status[2],source_status[2],checked[2],pixel_errors[2],accepted[2],rejected[2];
- wire [1:0] fvals,exposures;
+ wire [1:0] exposures;
  genvar g;
  generate for(g=0;g<2;g=g+1)begin: pipelines
   wire lv,seq_enable,source_armed,busy,pass,pending,flash,roi;
